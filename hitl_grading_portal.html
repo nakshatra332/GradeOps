@@ -1,0 +1,760 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans,'system-ui');background:var(--color-background-tertiary);color:var(--color-text-primary);min-height:100vh;font-size:14px}
+  :root{--sidebar:220px;--hdr:52px}
+
+  /* Layout */
+  .app{display:flex;flex-direction:column;min-height:100vh}
+  .header{height:var(--hdr);background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:100}
+  .logo{font-size:15px;font-weight:500;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+  .logo-dot{width:8px;height:8px;background:#1D9E75;border-radius:50%}
+  .header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .role-badge{font-size:11px;padding:3px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary)}
+  .body{display:flex;flex:1}
+  .sidebar{width:var(--sidebar);background:var(--color-background-primary);border-right:0.5px solid var(--color-border-tertiary);padding:12px 0;flex-shrink:0;position:sticky;top:var(--hdr);height:calc(100vh - var(--hdr));overflow-y:auto}
+  .main{flex:1;padding:24px;overflow-y:auto}
+
+  /* Sidebar nav */
+  .nav-section{padding:4px 12px 2px;font-size:10px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.8px;margin-top:8px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;color:var(--color-text-secondary);border-radius:0;transition:background 0.1s;font-size:13px;border-left:2px solid transparent}
+  .nav-item:hover{background:var(--color-background-secondary);color:var(--color-text-primary)}
+  .nav-item.active{background:var(--color-background-secondary);color:var(--color-text-primary);border-left:2px solid #1D9E75}
+  .nav-item i{font-size:16px;opacity:0.7}
+  .nav-item.active i{opacity:1;color:#1D9E75}
+  .nav-badge{margin-left:auto;background:#E24B4A;color:#fff;font-size:10px;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+
+  /* Page header */
+  .page-title{font-size:18px;font-weight:500;margin-bottom:4px}
+  .page-sub{font-size:13px;color:var(--color-text-secondary);margin-bottom:20px}
+
+  /* Cards */
+  .card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:16px 20px;margin-bottom:16px}
+  .card-title{font-size:13px;font-weight:500;margin-bottom:12px;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.5px;font-size:11px}
+
+  /* Metrics */
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+  .metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px}
+  .metric-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:6px}
+  .metric-value{font-size:22px;font-weight:500}
+  .metric-value.green{color:#0F6E56}
+  .metric-value.red{color:#A32D2D}
+  .metric-value.amber{color:#854F0B}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;padding:8px 12px;color:var(--color-text-secondary);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;border-bottom:0.5px solid var(--color-border-tertiary)}
+  td{padding:10px 12px;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--color-background-secondary)}
+
+  /* Badges */
+  .badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;border-radius:var(--border-radius-md)}
+  .badge-green{background:#E1F5EE;color:#0F6E56}
+  .badge-amber{background:#FAEEDA;color:#854F0B}
+  .badge-red{background:#FCEBEB;color:#A32D2D}
+  .badge-gray{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+  .badge-blue{background:#E6F1FB;color:#185FA5}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);cursor:pointer;font-size:13px;font-family:inherit;background:transparent;color:var(--color-text-primary);transition:background 0.1s}
+  .btn:hover{background:var(--color-background-secondary)}
+  .btn-primary{background:#0F6E56;color:#fff;border-color:#0F6E56}
+  .btn-primary:hover{background:#085041;border-color:#085041}
+  .btn-danger{background:var(--color-background-primary);color:#A32D2D;border-color:#A32D2D}
+  .btn-danger:hover{background:#FCEBEB}
+  .btn-sm{padding:5px 10px;font-size:12px}
+
+  /* Upload zone */
+  .upload-zone{border:1.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:32px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s}
+  .upload-zone:hover,.upload-zone.drag{border-color:#1D9E75;background:#E1F5EE20}
+  .upload-zone i{font-size:32px;color:var(--color-text-tertiary);margin-bottom:8px;display:block}
+  .upload-zone p{font-size:13px;color:var(--color-text-secondary)}
+  .upload-zone small{font-size:11px;color:var(--color-text-tertiary)}
+
+  /* Form */
+  .form-group{margin-bottom:14px}
+  .form-label{display:block;font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px}
+  input[type=text],input[type=email],select,textarea{width:100%;padding:8px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-family:inherit;font-size:13px}
+  textarea{resize:vertical;font-family:var(--font-mono,'monospace');font-size:12px}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#1D9E75}
+
+  /* Two col */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+  /* Role switch */
+  .role-switch{display:flex;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden}
+  .role-opt{padding:6px 16px;cursor:pointer;font-size:12px;background:transparent;border:none;font-family:inherit;color:var(--color-text-secondary);transition:background 0.15s}
+  .role-opt.active{background:#0F6E56;color:#fff}
+
+  /* Toast */
+  .toast{position:fixed;bottom:20px;right:20px;background:#0F6E56;color:#fff;padding:10px 16px;border-radius:var(--border-radius-md);font-size:13px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:999;display:flex;align-items:center;gap:8px}
+  .toast.show{opacity:1}
+
+  /* Progress bar */
+  .progress{height:4px;background:var(--color-background-secondary);border-radius:2px;overflow:hidden;margin-top:6px}
+  .progress-bar{height:100%;background:#1D9E75;border-radius:2px;transition:width 0.4s}
+
+  /* File list item */
+  .file-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:8px;background:var(--color-background-primary)}
+  .file-item-icon{width:32px;height:32px;border-radius:var(--border-radius-md);background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .file-item-icon i{font-size:16px;color:#185FA5}
+  .file-item-info{flex:1;min-width:0}
+  .file-item-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .file-item-meta{font-size:11px;color:var(--color-text-tertiary)}
+  .file-item-actions{display:flex;gap:6px}
+
+  /* Empty state */
+  .empty{text-align:center;padding:40px;color:var(--color-text-tertiary)}
+  .empty i{font-size:36px;display:block;margin-bottom:8px}
+  .empty p{font-size:13px}
+
+  /* Tabs */
+  .tabs{display:flex;gap:0;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:20px}
+  .tab{padding:8px 16px;cursor:pointer;font-size:13px;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px;transition:color 0.15s}
+  .tab:hover{color:var(--color-text-primary)}
+  .tab.active{color:#0F6E56;border-bottom-color:#0F6E56}
+
+  /* User mgmt */
+  .avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+
+  .divider{height:0.5px;background:var(--color-border-tertiary);margin:16px 0}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo"><span class="logo-dot"></span> GradeFlow</div>
+    <div style="width:0.5px;height:20px;background:var(--color-border-tertiary);margin:0 4px"></div>
+    <span id="course-label" style="font-size:13px;color:var(--color-text-secondary)">CS 301 — Algorithms</span>
+    <div class="header-right">
+      <div class="role-switch">
+        <button class="role-opt active" id="btn-instructor" onclick="switchRole('instructor')">Instructor</button>
+        <button class="role-opt" id="btn-ta" onclick="switchRole('ta')">TA</button>
+      </div>
+      <div id="user-avatar" class="avatar" style="background:#E1F5EE;color:#0F6E56">PR</div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      <!-- populated by JS -->
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main" id="main-content">
+      <!-- populated by JS -->
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="ti ti-check" aria-hidden="true"></i> <span id="toast-msg"></span></div>
+
+<script>
+const state = {
+  role: 'instructor',
+  page: 'dashboard',
+  exams: [
+    {id:1,name:'Midterm Exam — Section A',course:'CS 301',pages:28,uploaded:'May 8, 2026',status:'graded',rubric:'midterm_rubric.json',students:28,reviewed:22,pending:6},
+    {id:2,name:'Quiz 3 — Sorting Algorithms',course:'CS 301',pages:15,uploaded:'May 9, 2026',status:'processing',rubric:'quiz3_rubric.json',students:15,reviewed:0,pending:15},
+    {id:3,name:'Assignment 2 Submission',course:'CS 301',pages:34,uploaded:'May 10, 2026',status:'pending',rubric:null,students:34,reviewed:0,pending:34},
+  ],
+  rubrics:[
+    {id:1,name:'midterm_rubric.json',questions:5,totalMarks:50,created:'May 7, 2026'},
+    {id:2,name:'quiz3_rubric.json',questions:3,totalMarks:15,created:'May 9, 2026'},
+  ],
+  users:[
+    {id:1,name:'Prof. Rajesh Kumar',email:'rk@cs.edu',role:'instructor',avatar:'RK',color:'#E1F5EE',tc:'#0F6E56'},
+    {id:2,name:'Ankita Sharma',email:'as@cs.edu',role:'ta',avatar:'AS',color:'#E6F1FB',tc:'#185FA5'},
+    {id:3,name:'Nakshatra Bora',email:'nb@cs.edu',role:'ta',avatar:'NB',color:'#EEEDFE',tc:'#534AB7'},
+    {id:4,name:'Priya Nath',email:'pn@cs.edu',role:'ta',avatar:'PN',color:'#E1F5EE',tc:'#0F6E56'},
+  ],
+  pendingReviews:[
+    {id:1,exam:'Midterm — Section A',student:'Student 23',q:'Q1: Explain time complexity of QuickSort',ai_score:7,max:10,confidence:'high',status:'pending'},
+    {id:2,exam:'Midterm — Section A',student:'Student 14',q:'Q2: Describe Dijkstra\'s Algorithm',ai_score:4,max:10,confidence:'low',status:'pending'},
+    {id:3,exam:'Midterm — Section A',student:'Student 07',q:'Q3: Prove correctness of BFS',ai_score:9,max:10,confidence:'high',status:'pending'},
+    {id:4,exam:'Midterm — Section A',student:'Student 19',q:'Q4: Analyze Merge Sort space',ai_score:5,max:10,confidence:'medium',status:'pending'},
+    {id:5,exam:'Midterm — Section A',student:'Student 02',q:'Q1: Explain time complexity of QuickSort',ai_score:8,max:10,confidence:'high',status:'approved'},
+    {id:6,exam:'Quiz 3',student:'Student 11',q:'Q2: Describe Dijkstra\'s Algorithm',ai_score:3,max:5,confidence:'medium',status:'overridden'},
+  ]
+};
+
+const instructorNav = [
+  {id:'dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+  {section:'Exams'},
+  {id:'upload',icon:'ti-upload',label:'Upload Exams'},
+  {id:'exams',icon:'ti-files',label:'Manage Exams'},
+  {section:'Rubrics'},
+  {id:'rubrics',icon:'ti-list-check',label:'Rubric Manager'},
+  {section:'Team'},
+  {id:'users',icon:'ti-users',label:'Users & Roles'},
+  {section:'Reports'},
+  {id:'reports',icon:'ti-chart-bar',label:'Grade Reports'},
+];
+
+const taNav = [
+  {id:'ta-dashboard',icon:'ti-layout-dashboard',label:'Dashboard'},
+  {section:'Review'},
+  {id:'ta-review',icon:'ti-eye',label:'Pending Reviews',badge:4},
+  {id:'ta-approved',icon:'ti-check',label:'Approved'},
+  {section:'Info'},
+  {id:'ta-exams',icon:'ti-files',label:'Exam Sheets'},
+];
+
+function switchRole(r){
+  state.role=r;
+  state.page=r==='instructor'?'dashboard':'ta-dashboard';
+  document.getElementById('btn-instructor').classList.toggle('active',r==='instructor');
+  document.getElementById('btn-ta').classList.toggle('active',r==='ta');
+  const u=r==='instructor'?state.users[0]:state.users[1];
+  document.getElementById('user-avatar').textContent=u.avatar;
+  document.getElementById('user-avatar').style.background=u.color;
+  document.getElementById('user-avatar').style.color=u.tc;
+  document.getElementById('course-label').textContent=r==='ta'?'CS 301 — Algorithms | TA View':'CS 301 — Algorithms';
+  render();
+}
+
+function navigate(page){state.page=page;render();}
+
+function render(){
+  renderSidebar();
+  renderMain();
+}
+
+function renderSidebar(){
+  const nav=state.role==='instructor'?instructorNav:taNav;
+  let html='';
+  nav.forEach(item=>{
+    if(item.section){
+      html+=`<div class="nav-section">${item.section}</div>`;
+    } else {
+      const active=state.page===item.id?'active':'';
+      const badge=item.badge?`<span class="nav-badge">${item.badge}</span>`:'';
+      html+=`<div class="nav-item ${active}" onclick="navigate('${item.id}')"><i class="ti ${item.icon}" aria-hidden="true"></i>${item.label}${badge}</div>`;
+    }
+  });
+  document.getElementById('sidebar').innerHTML=html;
+}
+
+function renderMain(){
+  const pages={
+    'dashboard':renderDashboard,
+    'upload':renderUpload,
+    'exams':renderExams,
+    'rubrics':renderRubrics,
+    'users':renderUsers,
+    'reports':renderReports,
+    'ta-dashboard':renderTaDashboard,
+    'ta-review':renderTaReview,
+    'ta-approved':renderTaApproved,
+    'ta-exams':renderTaExams,
+  };
+  const fn=pages[state.page]||renderDashboard;
+  document.getElementById('main-content').innerHTML=fn();
+  bindEvents();
+}
+
+function renderDashboard(){
+  const total=state.exams.length;
+  const graded=state.exams.filter(e=>e.status==='graded').length;
+  const pending=state.pendingReviews.filter(r=>r.status==='pending').length;
+  return `
+  <div class="page-title">Dashboard</div>
+  <div class="page-sub">Overview of grading activity for CS 301</div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Total Exams</div><div class="metric-value">${total}</div></div>
+    <div class="metric"><div class="metric-label">Graded</div><div class="metric-value green">${graded}</div></div>
+    <div class="metric"><div class="metric-label">Pending TA Review</div><div class="metric-value amber">${pending}</div></div>
+    <div class="metric"><div class="metric-label">Total Students</div><div class="metric-value">77</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Recent Exams</div>
+      ${state.exams.map(e=>`
+      <div class="file-item">
+        <div class="file-item-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+        <div class="file-item-info">
+          <div class="file-item-name">${e.name}</div>
+          <div class="file-item-meta">${e.students} students · ${e.uploaded}</div>
+          <div class="progress"><div class="progress-bar" style="width:${Math.round(e.reviewed/e.students*100)}%"></div></div>
+        </div>
+        <span class="badge ${e.status==='graded'?'badge-green':e.status==='processing'?'badge-amber':'badge-gray'}">${e.status}</span>
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">Pending TA Actions</div>
+      ${state.pendingReviews.filter(r=>r.status==='pending').slice(0,4).map(r=>`
+      <div class="file-item" style="cursor:pointer" onclick="navigate('ta-review')">
+        <div class="file-item-icon" style="background:#FAEEDA"><i class="ti ti-eye" style="color:#854F0B" aria-hidden="true"></i></div>
+        <div class="file-item-info">
+          <div class="file-item-name">${r.student} — ${r.q.substring(0,30)}…</div>
+          <div class="file-item-meta">AI Score: ${r.ai_score}/${r.max} · Confidence: ${r.confidence}</div>
+        </div>
+        <span class="badge badge-amber">pending</span>
+      </div>`).join('')}
+      <div style="margin-top:10px;text-align:center">
+        <button class="btn btn-sm" onclick="navigate('ta-review')"><i class="ti ti-arrow-right" aria-hidden="true"></i> View all reviews</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Rubrics on file</div>
+    <table>
+      <thead><tr><th>Name</th><th>Questions</th><th>Total Marks</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        ${state.rubrics.map(r=>`<tr>
+          <td><i class="ti ti-code" style="font-size:14px;margin-right:6px;color:var(--color-text-tertiary)" aria-hidden="true"></i>${r.name}</td>
+          <td>${r.questions}</td><td>${r.totalMarks}</td><td>${r.created}</td>
+          <td><button class="btn btn-sm" onclick="navigate('rubrics')">View</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderUpload(){
+  return `
+  <div class="page-title">Upload Exams</div>
+  <div class="page-sub">Upload scanned exam PDFs and attach a grading rubric</div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Exam Details</div>
+        <div class="form-group"><label class="form-label">Exam Name</label><input type="text" placeholder="e.g. Midterm Exam — Section B" id="exam-name"></div>
+        <div class="form-group"><label class="form-label">Course Code</label><input type="text" placeholder="e.g. CS 301" value="CS 301"></div>
+        <div class="form-group"><label class="form-label">Attach Rubric</label>
+          <select id="rubric-select">
+            <option value="">— Select existing rubric —</option>
+            ${state.rubrics.map(r=>`<option value="${r.id}">${r.name}</option>`).join('')}
+            <option value="new">+ Upload new rubric (JSON)</option>
+          </select>
+        </div>
+        <div id="new-rubric-zone" style="display:none">
+          <div class="form-group"><label class="form-label">Rubric JSON</label>
+            <textarea rows="6" placeholder='{"questions":[{"id":"q1","text":"Explain QuickSort","marks":10,"criteria":["Correct recurrence","Partition logic","Base case"]}]}'></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Upload Settings</div>
+        <div class="form-group"><label class="form-label">Expected pages per student</label><input type="text" placeholder="e.g. 4"></div>
+        <div class="form-group"><label class="form-label">Grading mode</label>
+          <select><option>Automatic (AI grades, TA reviews)</option><option>Manual only</option></select>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Exam PDF(s)</div>
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-in').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event)">
+          <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+          <p>Drop PDFs here or click to browse</p>
+          <small>Supports bulk upload · Max 200MB per file</small>
+        </div>
+        <input type="file" id="file-in" multiple accept=".pdf" style="display:none" onchange="handleFiles(this.files)">
+        <div id="file-list" style="margin-top:12px"></div>
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" style="width:100%" onclick="submitUpload()"><i class="ti ti-upload" aria-hidden="true"></i> Submit for Grading</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">What happens next</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${[['ti-scan','OCR & Transcription','Handwriting extracted per question'],['ti-brain','AI Grading','Scored against rubric with justification'],['ti-eye','TA Review','TAs approve or override AI grades'],['ti-report','Report','Final grades exported to CSV']].map(([icon,title,desc],i)=>`
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="ti ${icon}" style="font-size:14px;color:var(--color-text-secondary)" aria-hidden="true"></i></div>
+            <div><div style="font-size:13px;font-weight:500">${title}</div><div style="font-size:12px;color:var(--color-text-tertiary)">${desc}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+let uploadedFiles=[];
+function handleFiles(files){
+  for(let f of files){
+    if(!uploadedFiles.find(x=>x.name===f.name)) uploadedFiles.push({name:f.name,size:f.size});
+  }
+  renderFileList();
+}
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+}
+function renderFileList(){
+  const el=document.getElementById('file-list');
+  if(!el) return;
+  el.innerHTML=uploadedFiles.map((f,i)=>`
+  <div class="file-item">
+    <div class="file-item-icon"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></div>
+    <div class="file-item-info"><div class="file-item-name">${f.name}</div><div class="file-item-meta">${(f.size/1024/1024).toFixed(1)} MB</div></div>
+    <button class="btn btn-sm" onclick="removeFile(${i})"><i class="ti ti-x" aria-hidden="true"></i></button>
+  </div>`).join('');
+}
+function removeFile(i){uploadedFiles.splice(i,1);renderFileList();}
+function submitUpload(){
+  const name=document.getElementById('exam-name')?.value||'New Exam';
+  if(!name.trim()){showToast('Please enter an exam name');return;}
+  state.exams.unshift({id:Date.now(),name,course:'CS 301',pages:0,uploaded:'May 10, 2026',status:'processing',rubric:null,students:0,reviewed:0,pending:0});
+  uploadedFiles=[];
+  showToast('Exam submitted for processing');
+  navigate('exams');
+}
+
+function renderExams(){
+  return `
+  <div class="page-title">Manage Exams</div>
+  <div class="page-sub">All uploaded exam batches</div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <button class="btn btn-primary" onclick="navigate('upload')"><i class="ti ti-plus" aria-hidden="true"></i> Upload New</button>
+  </div>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Exam</th><th>Students</th><th>TA Progress</th><th>Rubric</th><th>Status</th><th>Uploaded</th><th></th></tr></thead>
+      <tbody>
+        ${state.exams.map(e=>`<tr>
+          <td><div style="font-weight:500">${e.name}</div><div style="font-size:11px;color:var(--color-text-tertiary)">${e.course}</div></td>
+          <td>${e.students}</td>
+          <td>
+            <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:4px">${e.reviewed}/${e.students} reviewed</div>
+            <div class="progress" style="width:100px"><div class="progress-bar" style="width:${e.students?Math.round(e.reviewed/e.students*100):0}%"></div></div>
+          </td>
+          <td>${e.rubric?`<span class="badge badge-blue"><i class="ti ti-check" aria-hidden="true"></i>${e.rubric}</span>`:`<span class="badge badge-red">None</span>`}</td>
+          <td><span class="badge ${e.status==='graded'?'badge-green':e.status==='processing'?'badge-amber':'badge-gray'}">${e.status}</span></td>
+          <td style="color:var(--color-text-secondary)">${e.uploaded}</td>
+          <td><div style="display:flex;gap:6px">
+            <button class="btn btn-sm"><i class="ti ti-download" aria-hidden="true"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="deleteExam(${e.id})"><i class="ti ti-trash" aria-hidden="true"></i></button>
+          </div></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+function deleteExam(id){state.exams=state.exams.filter(e=>e.id!==id);renderMain();showToast('Exam removed');}
+
+function renderRubrics(){
+  const sampleJson=`{
+  "exam": "Midterm",
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Explain QuickSort time complexity",
+      "marks": 10,
+      "criteria": [
+        "Correct average case O(n log n)",
+        "Worst case O(n²) mentioned",
+        "Partition step explained"
+      ]
+    }
+  ]
+}`;
+  return `
+  <div class="page-title">Rubric Manager</div>
+  <div class="page-sub">Define and manage grading rubrics in JSON format</div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Existing Rubrics</div>
+        ${state.rubrics.map(r=>`
+        <div class="file-item">
+          <div class="file-item-icon" style="background:#E1F5EE"><i class="ti ti-code" style="color:#0F6E56" aria-hidden="true"></i></div>
+          <div class="file-item-info">
+            <div class="file-item-name">${r.name}</div>
+            <div class="file-item-meta">${r.questions} questions · ${r.totalMarks} marks · ${r.created}</div>
+          </div>
+          <div class="file-item-actions">
+            <button class="btn btn-sm"><i class="ti ti-eye" aria-hidden="true"></i></button>
+            <button class="btn btn-sm btn-danger" onclick="deleteRubric(${r.id})"><i class="ti ti-trash" aria-hidden="true"></i></button>
+          </div>
+        </div>`).join('')}
+        ${state.rubrics.length===0?`<div class="empty"><i class="ti ti-file-off" aria-hidden="true"></i><p>No rubrics yet</p></div>`:''}
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Add New Rubric</div>
+        <div class="form-group"><label class="form-label">Rubric Name</label><input type="text" id="rubric-name" placeholder="e.g. quiz4_rubric.json"></div>
+        <div class="form-group"><label class="form-label">JSON Definition</label>
+          <textarea rows="12" id="rubric-json" placeholder='${sampleJson}'></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveRubric()"><i class="ti ti-plus" aria-hidden="true"></i> Save Rubric</button>
+      </div>
+    </div>
+  </div>`;
+}
+function deleteRubric(id){state.rubrics=state.rubrics.filter(r=>r.id!==id);renderMain();showToast('Rubric deleted');}
+function saveRubric(){
+  const name=document.getElementById('rubric-name')?.value;
+  if(!name){showToast('Enter a rubric name');return;}
+  state.rubrics.push({id:Date.now(),name:name.endsWith('.json')?name:name+'.json',questions:3,totalMarks:30,created:'May 10, 2026'});
+  renderMain();showToast('Rubric saved');
+}
+
+function renderUsers(){
+  return `
+  <div class="page-title">Users & Roles</div>
+  <div class="page-sub">Manage who can access this course and their permissions</div>
+  <div class="card">
+    <div class="card-title">Course Members</div>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${state.users.map(u=>`<tr>
+          <td><div style="display:flex;align-items:center;gap:8px">
+            <div class="avatar" style="background:${u.color};color:${u.tc}">${u.avatar}</div>
+            <span style="font-weight:500">${u.name}</span>
+          </div></td>
+          <td style="color:var(--color-text-secondary)">${u.email}</td>
+          <td><span class="badge ${u.role==='instructor'?'badge-green':'badge-blue'}">${u.role}</span></td>
+          <td><div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="toggleRole(${u.id})"><i class="ti ti-refresh" aria-hidden="true"></i> Toggle Role</button>
+            ${u.role!=='instructor'?`<button class="btn btn-sm btn-danger" onclick="removeUser(${u.id})"><i class="ti ti-trash" aria-hidden="true"></i></button>`:''}
+          </div></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="divider"></div>
+    <div class="card-title">Invite New Member</div>
+    <div style="display:flex;gap:8px">
+      <input type="email" placeholder="Email address" id="invite-email" style="flex:1">
+      <select id="invite-role" style="width:140px"><option value="ta">TA</option><option value="instructor">Instructor</option></select>
+      <button class="btn btn-primary" onclick="inviteUser()"><i class="ti ti-send" aria-hidden="true"></i> Invite</button>
+    </div>
+  </div>`;
+}
+function toggleRole(id){
+  const u=state.users.find(x=>x.id===id);
+  if(u) u.role=u.role==='ta'?'instructor':'ta';
+  renderMain();showToast('Role updated');
+}
+function removeUser(id){state.users=state.users.filter(u=>u.id!==id);renderMain();showToast('User removed');}
+function inviteUser(){
+  const email=document.getElementById('invite-email')?.value;
+  const role=document.getElementById('invite-role')?.value;
+  if(!email){showToast('Enter an email');return;}
+  const init=email.substring(0,2).toUpperCase();
+  state.users.push({id:Date.now(),name:email,email,role,avatar:init,color:'#F1EFE8',tc:'#5F5E5A'});
+  renderMain();showToast(`Invitation sent to ${email}`);
+}
+
+function renderReports(){
+  return `
+  <div class="page-title">Grade Reports</div>
+  <div class="page-sub">Export and review grade distributions</div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Class Average</div><div class="metric-value">36.4<span style="font-size:14px">/50</span></div></div>
+    <div class="metric"><div class="metric-label">Highest Score</div><div class="metric-value green">47</div></div>
+    <div class="metric"><div class="metric-label">Lowest Score</div><div class="metric-value red">18</div></div>
+    <div class="metric"><div class="metric-label">Pass Rate</div><div class="metric-value">82%</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Export Options</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" onclick="showToast('Downloading grades.csv…')"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> Export CSV</button>
+      <button class="btn" onclick="showToast('Generating PDF report…')"><i class="ti ti-file-text" aria-hidden="true"></i> Export PDF</button>
+      <button class="btn" onclick="showToast('Copied to clipboard')"><i class="ti ti-copy" aria-hidden="true"></i> Copy Summary</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Grade Distribution</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:100px">
+      ${[3,5,9,12,8,4,2,1].map((v,i)=>{
+        const labels=['0-10','11-20','21-25','26-30','31-35','36-40','41-45','46-50'];
+        const maxV=12;
+        const h=Math.round(v/maxV*90);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+          <span style="font-size:10px;color:var(--color-text-tertiary)">${v}</span>
+          <div style="width:100%;height:${h}px;background:#1D9E75;border-radius:3px 3px 0 0;opacity:${0.4+i*0.07}"></div>
+          <span style="font-size:9px;color:var(--color-text-tertiary)">${labels[i]}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+/* TA VIEWS */
+function renderTaDashboard(){
+  const pending=state.pendingReviews.filter(r=>r.status==='pending').length;
+  const approved=state.pendingReviews.filter(r=>r.status==='approved').length;
+  const overridden=state.pendingReviews.filter(r=>r.status==='overridden').length;
+  return `
+  <div class="page-title">TA Dashboard</div>
+  <div class="page-sub">Your grading review queue</div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Pending Review</div><div class="metric-value amber">${pending}</div></div>
+    <div class="metric"><div class="metric-label">Approved</div><div class="metric-value green">${approved}</div></div>
+    <div class="metric"><div class="metric-label">Overridden</div><div class="metric-value">${overridden}</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="card-title" style="margin:0">Your Queue</div>
+      <button class="btn btn-primary btn-sm" onclick="navigate('ta-review')"><i class="ti ti-arrow-right" aria-hidden="true"></i> Start Reviewing</button>
+    </div>
+    ${state.pendingReviews.filter(r=>r.status==='pending').slice(0,3).map(r=>`
+    <div class="file-item">
+      <div class="file-item-icon" style="background:#FAEEDA"><i class="ti ti-file-pencil" style="color:#854F0B" aria-hidden="true"></i></div>
+      <div class="file-item-info">
+        <div class="file-item-name">${r.student} — ${r.exam}</div>
+        <div class="file-item-meta">${r.q} · AI: ${r.ai_score}/${r.max} · <span style="color:${r.confidence==='high'?'#0F6E56':r.confidence==='low'?'#A32D2D':'#854F0B'}">${r.confidence} confidence</span></div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderTaReview(){
+  const queue=state.pendingReviews.filter(r=>r.status==='pending');
+  if(queue.length===0) return `<div class="page-title">Pending Reviews</div><div class="empty" style="margin-top:60px"><i class="ti ti-check" aria-hidden="true"></i><p>All caught up! No pending reviews.</p></div>`;
+  const r=queue[0];
+  return `
+  <div class="page-title">Pending Reviews</div>
+  <div class="page-sub">${queue.length} item${queue.length!==1?'s':''} awaiting review · use buttons to approve or override</div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Student Answer (Transcribed)</div>
+        <div style="background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px;font-size:13px;line-height:1.7;color:var(--color-text-secondary);min-height:160px">
+          <em>[Transcribed handwriting from scanned page]</em><br><br>
+          QuickSort has average time complexity of O(n log n) due to the recursive partition. In the worst case when the pivot is always the smallest or largest element, complexity degrades to O(n²). The partition step itself runs in O(n). This matches the recurrence T(n) = 2T(n/2) + O(n).
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px">
+          <span class="badge badge-gray"><i class="ti ti-scan" aria-hidden="true"></i> OCR confidence: 94%</span>
+          <span class="badge badge-gray">Page 3</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">AI Justification</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--color-text-secondary)">
+          Student correctly identified average O(n log n) and worst-case O(n²) complexities. Partition step was referenced but the recurrence derivation was brief. Partial credit awarded for the two main criteria met.
+        </div>
+        <div class="divider"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:11px;color:var(--color-text-tertiary)">AI Proposed Score</div>
+            <div style="font-size:22px;font-weight:500">${r.ai_score} <span style="font-size:14px;color:var(--color-text-tertiary)">/ ${r.max}</span></div>
+          </div>
+          <span class="badge ${r.confidence==='high'?'badge-green':r.confidence==='low'?'badge-red':'badge-amber'}">Confidence: ${r.confidence}</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Rubric</div>
+        ${['Correct average case O(n log n)','Worst case O(n²) mentioned','Partition step explained','Recurrence T(n)=2T(n/2)+O(n)'].map((c,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary)">
+          <i class="ti ${i<3?'ti-check':'ti-x'}" style="color:${i<3?'#0F6E56':'#A32D2D'}" aria-hidden="true"></i>
+          <span style="font-size:13px">${c}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary)">${i<3?'2.5':'0'} pts</span>
+        </div>`).join('')}
+      </div>
+      <div class="card">
+        <div class="card-title">Your Decision</div>
+        <div class="form-group">
+          <label class="form-label">Override Score (optional)</label>
+          <input type="text" id="override-score" placeholder="${r.ai_score}" style="width:80px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comment</label>
+          <textarea rows="3" id="ta-comment" placeholder="Leave a note…"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary" style="flex:1" onclick="approveReview(${r.id})"><i class="ti ti-check" aria-hidden="true"></i> Approve (A)</button>
+          <button class="btn btn-danger" style="flex:1" onclick="overrideReview(${r.id})"><i class="ti ti-edit" aria-hidden="true"></i> Override (O)</button>
+        </div>
+        <button class="btn" style="width:100%;margin-top:8px" onclick="skipReview()"><i class="ti ti-arrow-right" aria-hidden="true"></i> Skip for now</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Queue</div>
+        ${queue.map((q,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;${i>0?'opacity:0.5':''}">
+          <span style="font-size:11px;min-width:18px;color:var(--color-text-tertiary)">${i+1}</span>
+          <div style="flex:1"><div style="font-size:12px;font-weight:500">${q.student}</div><div style="font-size:11px;color:var(--color-text-tertiary)">${q.q.substring(0,35)}…</div></div>
+          <span class="badge ${q.confidence==='high'?'badge-green':q.confidence==='low'?'badge-red':'badge-amber'}" style="font-size:10px">${q.confidence}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function approveReview(id){
+  const r=state.pendingReviews.find(x=>x.id===id);
+  if(r) r.status='approved';
+  renderMain();showToast('Approved');
+}
+function overrideReview(id){
+  const r=state.pendingReviews.find(x=>x.id===id);
+  const sc=document.getElementById('override-score')?.value;
+  if(r){r.status='overridden';if(sc) r.ai_score=parseInt(sc)||r.ai_score;}
+  renderMain();showToast('Override saved');
+}
+function skipReview(){
+  const q=state.pendingReviews.filter(r=>r.status==='pending');
+  if(q.length>1){state.pendingReviews.push(state.pendingReviews.splice(state.pendingReviews.indexOf(q[0]),1)[0]);}
+  renderMain();
+}
+
+function renderTaApproved(){
+  const done=state.pendingReviews.filter(r=>r.status!=='pending');
+  return `
+  <div class="page-title">Completed Reviews</div>
+  <div class="page-sub">${done.length} reviews completed</div>
+  <div class="card" style="padding:0">
+    <table>
+      <thead><tr><th>Student</th><th>Question</th><th>AI Score</th><th>Decision</th></tr></thead>
+      <tbody>
+        ${done.length?done.map(r=>`<tr>
+          <td style="font-weight:500">${r.student}</td>
+          <td style="color:var(--color-text-secondary)">${r.q.substring(0,40)}…</td>
+          <td>${r.ai_score}/${r.max}</td>
+          <td><span class="badge ${r.status==='approved'?'badge-green':'badge-amber'}">${r.status}</span></td>
+        </tr>`).join(''):`<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--color-text-tertiary)">No completed reviews yet</td></tr>`}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderTaExams(){
+  return `
+  <div class="page-title">Exam Sheets</div>
+  <div class="page-sub">Read-only view of uploaded exams</div>
+  ${state.exams.map(e=>`
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="file-item-icon"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+      <div style="flex:1">
+        <div style="font-weight:500">${e.name}</div>
+        <div style="font-size:12px;color:var(--color-text-tertiary)">${e.students} students · ${e.uploaded} · ${e.rubric||'No rubric'}</div>
+        <div class="progress" style="margin-top:6px;width:200px"><div class="progress-bar" style="width:${e.students?Math.round(e.reviewed/e.students*100):0}%"></div></div>
+      </div>
+      <span class="badge ${e.status==='graded'?'badge-green':e.status==='processing'?'badge-amber':'badge-gray'}">${e.status}</span>
+    </div>
+  </div>`).join('')}`;
+}
+
+function bindEvents(){
+  const rs=document.getElementById('rubric-select');
+  if(rs) rs.addEventListener('change',function(){
+    const z=document.getElementById('new-rubric-zone');
+    if(z) z.style.display=this.value==='new'?'block':'none';
+  });
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+render();
+</script>
+</body>
+</html>
