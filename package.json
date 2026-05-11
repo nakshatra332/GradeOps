@@ -1,0 +1,13 @@
+{
+  "name": "gradeops",
+  "version": "1.0.0",
+  "description": "GradeFlow — Human-in-the-loop AI grading portal",
+  "private": true,
+  "scripts": {
+    "dev":   "npx serve . --listen 3000 --no-clipboard",
+    "start": "npx serve . --listen 3000 --no-clipboard"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

@@ -1,0 +1,35 @@
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+pipeline/.venv/
+
+# Environment Variables
+.env
+.env.local
+pipeline/.env
+
+# Local Storage / Output
+scratch/
+pipeline/scratch/
+*.log
+
+# Editor & OS
+.vscode/
+.idea/
+.DS_Store
+*.bak
+hitl_grading_portal.html.bak
+
+# SQLite / Database
+*.sqlite
+*.db

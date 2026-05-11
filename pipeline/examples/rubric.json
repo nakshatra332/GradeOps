@@ -1,0 +1,31 @@
+{
+  "exam": "Midterm — Data Structures & Algorithms",
+  "course": "CS 301",
+  "pages_per_student": 2,
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Explain the time complexity of QuickSort in average and worst cases. Derive the recurrence.",
+      "max_marks": 10,
+      "criteria": [
+        {"text": "Correct average case O(n log n)",      "marks": 3},
+        {"text": "Worst case O(n²) mentioned",           "marks": 3},
+        {"text": "Partition step explained as O(n)",     "marks": 2},
+        {"text": "Recurrence T(n)=2T(n/2)+O(n) stated", "marks": 2}
+      ],
+      "acceptable_patterns": ["O(n log n)", "nlogn", "n log n", "O(n^2)", "O(n²)"]
+    },
+    {
+      "id": "q2",
+      "text": "Compare BFS and DFS. When would you use each?",
+      "max_marks": 10,
+      "criteria": [
+        {"text": "BFS uses a queue; DFS uses a stack",            "marks": 2},
+        {"text": "BFS finds shortest path in unweighted graphs",  "marks": 3},
+        {"text": "DFS useful for topological sort / cycle detection", "marks": 3},
+        {"text": "Correct time complexity O(V+E) for both",       "marks": 2}
+      ],
+      "acceptable_patterns": ["queue", "stack", "O(V+E)", "shortest path", "topological"]
+    }
+  ]
+}
