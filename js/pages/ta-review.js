@@ -1,51 +1,168 @@
 /**
- * pages/ta-review.js — TA review queue: approve, override, or skip AI grades.
+ * pages/ta-review.js — TA review queue: approve, override, or escalate AI grades.
  *
- * UX principle: the action panel (right col) is the primary focus.
- * The evidence (left col) supports the decision — don't bury it.
+ * Data source: live FastAPI pipeline (GET /pipeline/{exam_id}).
+ * Actions:     POST /review/{exam_id}/decide → resumes LangGraph.
+ *
+ * Falls back to the mocked queue from state.js if no active exam is running.
  */
 
-import { getPendingReviews, approveReview, overrideReview, skipReview } from '../api/reviews.js';
+import { getPipelineState, submitDecision } from '../api/pipeline.js';
+import { store }    from '../state.js';
+import { navigate } from '../router.js';
 import { showToast } from '../components/toast.js';
 import { renderNav } from '../router.js';
 
-const CONF_BADGE  = { high: 'badge-green', low: 'badge-red', medium: 'badge-amber' };
-const CONF_LABEL  = { high: 'High confidence', low: 'Low confidence', medium: 'Medium confidence' };
-
-const RUBRIC_CRITERIA = [
-  { text: 'Correct average case O(n log n)', pts: 2.5, met: true  },
-  { text: 'Worst case O(n²) mentioned',      pts: 2.5, met: true  },
-  { text: 'Partition step explained',        pts: 2.5, met: true  },
-  { text: 'Recurrence T(n)=2T(n/2)+O(n)',   pts: 2.5, met: false },
-];
+// ── Render ─────────────────────────────────────────────────────────────────────
 
 export async function render(container) {
-  const queue = await getPendingReviews();
+  const examId = store.activeExamId;
 
-  if (!queue.length) {
+  // No active exam — show empty state with helper tip
+  if (!examId) {
     container.innerHTML = `
       <h1 class="page-title">Review queue</h1>
       <div class="empty" style="margin-top:80px">
-        <i class="ti ti-circle-check" aria-hidden="true"></i>
-        <p>All caught up — no pending reviews</p>
+        <i class="ti ti-inbox" aria-hidden="true"></i>
+        <p>No active grading session.</p>
+        <p style="font-size:var(--text-sm);color:var(--neutral-400);margin-top:4px">
+          Go to <strong>Upload Exam</strong> to start a new grading run.
+        </p>
+        <button class="btn btn-primary" style="margin-top:16px" id="go-upload">
+          <i class="ti ti-upload" aria-hidden="true"></i> Upload Exam
+        </button>
+      </div>`;
+    container.querySelector('#go-upload')?.addEventListener('click', () => navigate('upload'));
+    return;
+  }
+
+  // Show loading skeleton while we fetch pipeline state
+  container.innerHTML = `
+    <h1 class="page-title">Review queue</h1>
+    <div class="empty" style="margin-top:60px">
+      <i class="ti ti-loader-2 ti-spin" style="font-size:36px;color:var(--brand)" aria-hidden="true"></i>
+      <p style="margin-top:12px">Loading pipeline state…</p>
+    </div>`;
+
+  let state;
+  try {
+    state = await getPipelineState(examId);
+  } catch (err) {
+    container.innerHTML = `
+      <h1 class="page-title">Review queue</h1>
+      <div class="empty" style="margin-top:60px">
+        <i class="ti ti-alert-circle" aria-hidden="true"></i>
+        <p>Could not reach the pipeline server.</p>
+        <p style="font-size:var(--text-sm);color:var(--neutral-400)">Make sure the FastAPI server is running on port 8000.</p>
       </div>`;
     return;
   }
 
-  const r = queue[0];
+  // Still processing — not ready for review yet
+  if (state.status === 'processing') {
+    renderProcessing(container, examId);
+    return;
+  }
+
+  // No pending review → either all done or not started
+  if (!state.next_review) {
+    if (state.status === 'complete') {
+      // Update exam in store so Dashboard and Exams page show it as graded
+      const examRecord = store.exams.find(e => e.id === examId);
+      if (examRecord) {
+        examRecord.status = 'graded';
+        examRecord.students = state.stats?.total_students ?? 0;
+        examRecord.reviewed = examRecord.students;
+        examRecord.pending = 0;
+      }
+      renderComplete(container, state.stats);
+    } else {
+      renderProcessing(container, examId);
+    }
+    return;
+  }
+
+  renderReviewPanel(container, examId, state);
+}
+
+
+// ── Sub-renderers ──────────────────────────────────────────────────────────────
+
+function renderProcessing(container, examId) {
+  container.innerHTML = `
+    <h1 class="page-title">Review queue</h1>
+    <div class="card" style="max-width:480px;margin:60px auto;text-align:center;padding:32px">
+      <i class="ti ti-loader-2 ti-spin" style="font-size:40px;color:var(--brand);margin-bottom:16px" aria-hidden="true"></i>
+      <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:6px">AI Grading in progress</div>
+      <div style="font-size:var(--text-sm);color:var(--neutral-500)">
+        Exam <code>${examId}</code> is still being processed.<br>
+        This page will refresh automatically.
+      </div>
+      <div class="progress" style="margin-top:20px"><div class="progress-bar" style="width:60%;animation:none"></div></div>
+    </div>`;
+
+  // Poll every 3 s until next_review is available
+  let timer = setInterval(async () => {
+    try {
+      const s = await getPipelineState(examId);
+      if (s.next_review || s.is_complete || s.error) {
+        clearInterval(timer);
+        render(container);
+      }
+    } catch { clearInterval(timer); }
+  }, 3000);
+}
+
+function renderComplete(container, stats) {
+  store.activeExamId = null;
+  container.innerHTML = `
+    <h1 class="page-title">Review queue</h1>
+    <div class="card" style="max-width:500px;margin:60px auto;text-align:center;padding:32px">
+      <i class="ti ti-circle-check" style="font-size:48px;color:var(--brand);margin-bottom:16px" aria-hidden="true"></i>
+      <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:16px">All reviews complete!</div>
+      <div style="text-align:left;background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:16px;margin-bottom:20px;font-size:var(--text-sm)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
+          ${statRow('Students',       stats.total_students)}
+          ${statRow('Total marks',    stats.total_marks)}
+          ${statRow('Class average',  stats.class_average)}
+          ${statRow('Pass rate',      `${stats.pass_rate}%`)}
+          ${statRow('Highest score',  stats.highest)}
+          ${statRow('Lowest score',   stats.lowest)}
+          ${statRow('AI–TA agreement', `${stats.ai_ta_agreement_rate}%`)}
+          ${statRow('Plagiarism flags', stats.flagged_plagiarism)}
+        </div>
+      </div>
+      <button class="btn btn-primary" id="go-exams" style="width:100%;justify-content:center">
+        <i class="ti ti-list" aria-hidden="true"></i> View all exams
+      </button>
+    </div>`;
+  container.querySelector('#go-exams')?.addEventListener('click', () => navigate('exams'));
+}
+
+function renderReviewPanel(container, examId, state) {
+  const r = state.next_review;   // interrupt payload from review_node
+  const students = state.students ?? [];
+  const reviewed = students.filter(s => s.ta_decision !== null).length;
+  const total    = students.length;
+
+  const grade       = r.grade ?? {};
+  const qGrades     = grade.question_grades ?? [];
+  const totalScore  = qGrades.reduce((s, q) => s + q.score, 0);
+  const maxScore    = qGrades.reduce((s, q) => s + q.max_score, 0);
+  const ocrPct      = Math.round((r.ocr_confidence ?? 1) * 100);
+  const ocrBadge    = ocrPct >= 85 ? 'badge-green' : ocrPct >= 70 ? 'badge-amber' : 'badge-red';
 
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Review queue</h1>
-        <p class="page-sub">${r.student} · ${r.exam} · ${queue.length} remaining</p>
+        <p class="page-sub">${r.student_id} · Exam ${examId} · ${total - reviewed} remaining</p>
       </div>
-      <!-- Progress through queue -->
       <div style="display:flex;align-items:center;gap:10px;font-size:var(--text-sm);color:var(--neutral-600)">
         <div class="progress" style="width:80px">
-          <div class="progress-bar" style="width:${Math.round((1 / (queue.length + 1)) * 100)}%"></div>
+          <div class="progress-bar" style="width:${Math.round(reviewed / Math.max(total, 1) * 100)}%"></div>
         </div>
-        1 of ${queue.length}
+        ${reviewed + 1} of ${total}
       </div>
     </div>
 
@@ -53,47 +170,38 @@ export async function render(container) {
       <!-- Evidence column -->
       <div>
         <div class="card">
-          <div class="card-title">Student answer</div>
-          <div style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:14px 16px;font-size:var(--text-base);line-height:1.8;color:var(--neutral-900);min-height:140px">
-            QuickSort has average time complexity of O(n log n) due to the recursive partition.
-            In the worst case when the pivot is always the smallest or largest element, complexity
-            degrades to O(n²). The partition step itself runs in O(n). This matches the recurrence
-            T(n) = 2T(n/2) + O(n).
-          </div>
-          <div style="display:flex;gap:6px;margin-top:10px">
-            <span class="badge badge-gray"><i class="ti ti-scan" aria-hidden="true"></i> OCR 94%</span>
-            <span class="badge badge-gray">Page 3</span>
+          <div class="card-title">Student answer (OCR transcript)</div>
+          <div style="background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:14px 16px;font-size:var(--text-base);line-height:1.8;color:var(--neutral-900);min-height:140px;white-space:pre-wrap">${escHtml(r.transcript ?? '(no transcript)')}</div>
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <span class="badge ${ocrBadge}"><i class="ti ti-scan" aria-hidden="true"></i> OCR ${ocrPct}%</span>
+            ${r.needs_priority_review ? '<span class="badge badge-red"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Priority review</span>' : ''}
+            ${r.plagiarism_score != null ? `<span class="badge badge-amber"><i class="ti ti-copy" aria-hidden="true"></i> Similarity ${Math.round(r.plagiarism_score * 100)}% with ${r.plagiarism_match}</span>` : ''}
           </div>
         </div>
 
         <div class="card">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
-            <div class="card-title" style="margin:0">AI reasoning</div>
-            <span class="badge ${CONF_BADGE[r.confidence] ?? 'badge-gray'}">${CONF_LABEL[r.confidence]}</span>
-          </div>
-          <p style="font-size:var(--text-base);line-height:1.7;color:var(--neutral-600)">
-            Student correctly identified average O(n log n) and worst-case O(n²) complexities.
-            Partition step was referenced but the recurrence derivation was brief.
-            Partial credit awarded for the two main criteria met.
-          </p>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--neutral-100)">
-            <span style="font-size:var(--text-xs);color:var(--neutral-400)">Proposed score</span>
-            <span style="font-size:var(--text-xl);font-weight:600;letter-spacing:-0.5px">
-              ${r.ai_score}
-              <span style="font-size:var(--text-md);color:var(--neutral-400);font-weight:400"> / ${r.max}</span>
+            <div class="card-title" style="margin:0">AI Grades by question</div>
+            <span style="font-size:var(--text-xl);font-weight:700;letter-spacing:-0.5px">
+              ${totalScore.toFixed(1)}
+              <span style="font-size:var(--text-md);color:var(--neutral-400);font-weight:400"> / ${maxScore}</span>
             </span>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Rubric checklist</div>
-          ${RUBRIC_CRITERIA.map(c => `
-            <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--neutral-100)">
-              <i class="ti ${c.met ? 'ti-circle-check' : 'ti-circle-x'}"
-                 style="font-size:18px;color:${c.met ? 'var(--brand)' : 'var(--neutral-300)'};" aria-hidden="true"></i>
-              <span style="flex:1;font-size:var(--text-base)">${c.text}</span>
-              <span style="font-size:var(--text-xs);font-weight:500;color:${c.met ? 'var(--brand-dark)' : 'var(--neutral-400)'}">${c.met ? `+${c.pts}` : '0'} pts</span>
+          ${qGrades.map(q => `
+            <div style="padding:10px 0;border-bottom:1px solid var(--neutral-100)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span style="font-weight:600;font-size:var(--text-sm)">${escHtml(q.question_id)}</span>
+                <span style="font-size:var(--text-sm);font-weight:600;color:var(--brand)">${q.score} / ${q.max_score}</span>
+              </div>
+              <div style="font-size:var(--text-xs);color:var(--neutral-500);line-height:1.5">${escHtml(q.justification ?? '')}</div>
+              ${(q.criteria_met ?? []).length ? `
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+                  ${q.criteria_met.map(c => `<span class="badge badge-green" style="font-size:10px;padding:1px 6px">${escHtml(c)}</span>`).join('')}
+                </div>` : ''}
             </div>`).join('')}
+          <div style="font-size:var(--text-xs);color:var(--neutral-400);margin-top:10px;line-height:1.5">
+            ${escHtml(grade.overall_justification ?? '')}
+          </div>
         </div>
       </div>
 
@@ -102,83 +210,107 @@ export async function render(container) {
         <div class="card" style="position:sticky;top:calc(var(--hdr) + 16px)">
           <div class="card-title">Your decision</div>
 
-          <!-- Primary actions -->
           <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-            <button class="btn btn-primary" id="btn-approve" style="width:100%;justify-content:center;padding:10px">
-              <i class="ti ti-circle-check" aria-hidden="true"></i> Approve AI score
+            <button class="btn" id="btn-approve" style="width:100%;justify-content:center;padding:10px;border:1px solid var(--neutral-300);background:#fff">
+              <i class="ti ti-circle-check" aria-hidden="true" style="color:var(--brand)"></i> Approve AI score
               <kbd style="margin-left:auto;opacity:0.6;font-size:10px;font-family:inherit">A</kbd>
             </button>
-            <button class="btn btn-danger" id="btn-override" style="width:100%;justify-content:center;padding:10px">
-              <i class="ti ti-edit" aria-hidden="true"></i> Override score
+            <button class="btn" id="btn-override" style="width:100%;justify-content:center;padding:10px;border:1px solid var(--neutral-300);background:#fff">
+              <i class="ti ti-edit" aria-hidden="true" style="color:var(--warning)"></i> Override score
               <kbd style="margin-left:auto;opacity:0.6;font-size:10px;font-family:inherit">O</kbd>
+            </button>
+            <button class="btn" id="btn-escalate" style="width:100%;justify-content:center;padding:10px;border:1px solid var(--neutral-300);background:#fff">
+              <i class="ti ti-arrow-up" aria-hidden="true" style="color:var(--danger)"></i> Escalate to instructor
+              <kbd style="margin-left:auto;opacity:0.6;font-size:10px;font-family:inherit">E</kbd>
             </button>
           </div>
 
           <div class="divider"></div>
 
-          <!-- Override fields -->
           <div class="form-group">
-            <label class="form-label" for="override-score">New score <span style="font-weight:400;color:var(--neutral-400)">(leave blank to keep AI's)</span></label>
-            <input type="number" id="override-score" placeholder="${r.ai_score}" min="0" max="${r.max}" step="0.5" style="width:90px">
+            <label class="form-label" for="override-score">
+              Override score <span style="font-weight:400;color:var(--neutral-400)">(0 – ${maxScore})</span>
+            </label>
+            <input type="number" id="override-score" placeholder="${totalScore.toFixed(1)}" min="0" max="${maxScore}" step="0.5" style="width:90px">
           </div>
           <div class="form-group">
-            <label class="form-label" for="ta-comment">Comment <span style="font-weight:400;color:var(--neutral-400)">(optional)</span></label>
-            <textarea rows="3" id="ta-comment" placeholder="Reason for override, notes for student…"></textarea>
+            <label class="form-label" for="ta-comment">
+              Comment <span style="font-weight:400;color:var(--neutral-400)">(optional)</span>
+            </label>
+            <textarea rows="3" id="ta-comment" placeholder="Reason for override or note for student…"></textarea>
           </div>
-
-          <button class="btn" style="width:100%;justify-content:center;color:var(--neutral-400)" id="btn-skip">
-            Skip for now
-          </button>
-
-          <div class="divider"></div>
-
-          <!-- Queue list -->
-          <div style="font-size:var(--text-xs);font-weight:600;color:var(--neutral-400);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">
-            Queue (${queue.length})
-          </div>
-          ${queue.map((q, i) => `
-            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;opacity:${i === 0 ? '1' : '0.45'}">
-              <span style="font-size:var(--text-xs);color:var(--neutral-400);min-width:16px">${i + 1}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:var(--text-xs);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${q.student}</div>
-                <div style="font-size:10px;color:var(--neutral-400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${q.q.substring(0, 40)}…</div>
-              </div>
-              <span class="badge ${CONF_BADGE[q.confidence] ?? 'badge-gray'}" style="font-size:10px;padding:1px 6px">${q.confidence}</span>
-            </div>`).join('')}
         </div>
       </div>
     </div>`;
 
-  bindDecisionEvents(container, r, queue.length);
+  bindDecisionEvents(container, examId, totalScore, maxScore);
 }
 
-function bindDecisionEvents(container, review, queueLength) {
-  const getOverride = () => { const v = container.querySelector('#override-score')?.value; return v ? parseFloat(v) : NaN; };
-  const getComment  = () => container.querySelector('#ta-comment')?.value ?? '';
 
-  container.querySelector('#btn-approve').addEventListener('click', async () => {
-    await approveReview(review.id);
-    showToast('Approved');
-    await renderNav();
-    render(container);
-  });
+// ── Event binding ─────────────────────────────────────────────────────────────
 
-  container.querySelector('#btn-override').addEventListener('click', async () => {
-    await overrideReview(review.id, { score: getOverride(), comment: getComment() });
-    showToast('Override saved');
-    await renderNav();
-    render(container);
-  });
+function bindDecisionEvents(container, examId, aiScore, maxScore) {
+  const getScore   = () => { 
+    const v = container.querySelector('#override-score')?.value; 
+    return v ? parseFloat(v) : aiScore; 
+  };
+  const getComment = () => container.querySelector('#ta-comment')?.value ?? '';
 
-  container.querySelector('#btn-skip').addEventListener('click', async () => {
-    await skipReview(review.id);
-    render(container);
-  });
+  async function decide(action, score = null, comment = '') {
+    const btns = container.querySelectorAll('button');
+    btns.forEach(b => b.disabled = true);
 
-  document.addEventListener('keydown', onKeyDown, { once: true });
-  function onKeyDown(e) {
+    try {
+      const result = await submitDecision(examId, action, score, comment);
+      showToast(action === 'approve' ? 'Approved ✓' : action === 'override' ? 'Override saved ✓' : 'Escalated');
+      await renderNav();
+
+      if (result.is_complete) {
+        const finalState = await getPipelineState(examId);
+        
+        // Update exam in store so Dashboard and Exams page show it as graded
+        const examRecord = store.exams.find(e => e.id === examId);
+        if (examRecord) {
+          examRecord.status = 'graded';
+          examRecord.students = finalState.stats?.total_students ?? 0;
+          examRecord.reviewed = examRecord.students;
+          examRecord.pending = 0;
+        }
+
+        renderComplete(container, finalState.stats ?? result.stats ?? {});
+      } else {
+        render(container);
+      }
+    } catch (err) {
+      showToast(err.message ?? 'Failed to submit decision', 'error');
+      btns.forEach(b => b.disabled = false);
+    }
+  }
+
+  container.querySelector('#btn-approve').addEventListener('click',   () => decide('approve'));
+  container.querySelector('#btn-override').addEventListener('click',  () => decide('override', getScore(), getComment()));
+  container.querySelector('#btn-escalate').addEventListener('click',  () => decide('escalate'));
+
+  document.addEventListener('keydown', onKey, { once: true });
+  function onKey(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'a' || e.key === 'A') container.querySelector('#btn-approve')?.click();
     if (e.key === 'o' || e.key === 'O') container.querySelector('#btn-override')?.click();
+    if (e.key === 'e' || e.key === 'E') container.querySelector('#btn-escalate')?.click();
   }
+}
+
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function statRow(label, value) {
+  return `<span style="color:var(--neutral-500)">${label}</span><strong>${value ?? '—'}</strong>`;
 }

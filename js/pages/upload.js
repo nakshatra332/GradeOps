@@ -1,35 +1,49 @@
 /**
- * pages/upload.js — Upload exam PDFs and attach a rubric.
+ * pages/upload.js — Upload exam PDF + rubric JSON to the live pipeline.
+ *
+ * Flow:
+ *   1. User drops a PDF and a rubric JSON file.
+ *   2. On submit → POST /pipeline/start (FormData with both files).
+ *   3. UI switches to a "Processing…" progress card.
+ *   4. Poll GET /pipeline/{exam_id} every 2 s.
+ *   5. When next_review appears → navigate to ta-review.
+ *   6. When is_complete and no next_review → navigate to exams.
  */
 
-import { getRubrics } from '../api/rubrics.js';
+import { startPipeline, getPipelineState } from '../api/pipeline.js';
 import { createExam } from '../api/exams.js';
-import { navigate } from '../router.js';
+import { store }     from '../state.js';
+import { navigate }  from '../router.js';
 import { showToast } from '../components/toast.js';
 
-let uploadedFiles = [];
+let pdfFile    = null;
+let rubricFile = null;
+let pollTimer  = null;
 
 const WORKFLOW_STEPS = [
-  { title: 'OCR & Transcription', desc: 'Handwriting is extracted per question' },
-  { title: 'AI grading',          desc: 'Answers scored against your rubric with reasoning' },
-  { title: 'TA review',           desc: 'TAs approve or override AI scores' },
-  { title: 'Export',              desc: 'Final grades exported to CSV' },
+  { title: 'OCR & Transcription', desc: 'Handwriting extracted from scanned pages' },
+  { title: 'AI Grading',          desc: 'Answers scored against rubric with justification' },
+  { title: 'TA Review',           desc: 'TAs approve, override, or escalate AI scores' },
+  { title: 'Export',              desc: 'Final grades saved as gradebook.json' },
 ];
 
+// ── Render ────────────────────────────────────────────────────────────────────
+
 export async function render(container) {
-  uploadedFiles = [];
-  const rubrics = await getRubrics();
+  pdfFile    = null;
+  rubricFile = null;
+  clearInterval(pollTimer);
 
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Upload exam</h1>
-        <p class="page-sub">Submit scanned PDFs for AI grading and TA review</p>
+        <p class="page-sub">Submit a scanned PDF and a rubric JSON for AI grading + TA review</p>
       </div>
     </div>
 
     <div class="grid-60-40">
-      <!-- Left: details + file drop -->
+      <!-- Left: file upload + settings -->
       <div>
         <div class="card">
           <div class="card-title">Exam details</div>
@@ -42,32 +56,44 @@ export async function render(container) {
             <input type="text" id="exam-course" value="CS 301">
           </div>
           <div class="form-group">
-            <label class="form-label" for="rubric-select">Grading rubric</label>
-            <select id="rubric-select">
-              <option value="">No rubric — manual grading only</option>
-              ${rubrics.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
-              <option value="new">+ Paste new rubric JSON…</option>
-            </select>
-          </div>
-          <div id="new-rubric-zone" style="display:none">
-            <div class="form-group">
-              <label class="form-label" for="inline-rubric-json">Rubric JSON</label>
-              <textarea id="inline-rubric-json" rows="7"
-                placeholder='{"questions":[{"id":"q1","text":"Explain QuickSort","marks":10,"criteria":["Correct recurrence","Partition logic"]}]}'></textarea>
-              <div class="form-hint">Paste valid JSON. Questions and marks are parsed automatically.</div>
-            </div>
+            <label class="form-label" for="pages-per-student">Pages per student
+              <span style="font-weight:400;color:var(--neutral-400)">(must match rubric)</span>
+            </label>
+            <input type="number" id="pages-per-student" placeholder="e.g. 2" min="1" value="2">
           </div>
         </div>
 
+        <!-- PDF drop zone -->
         <div class="card">
-          <div class="card-title">PDF files</div>
-          <div class="upload-zone" id="drop-zone" role="button" tabindex="0" aria-label="Upload PDFs">
-            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
-            <p>Drop PDFs here or click to browse</p>
-            <small>Multiple files allowed · max 200 MB each</small>
+          <div class="card-title">
+            <i class="ti ti-file-type-pdf" aria-hidden="true"></i> Exam PDF
           </div>
-          <input type="file" id="file-in" multiple accept=".pdf" style="display:none">
-          <div id="file-list" style="margin-top:10px"></div>
+          <div class="upload-zone" id="drop-pdf" role="button" tabindex="0" aria-label="Upload PDF">
+            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+            <p id="pdf-label">Drop scanned exam PDF here or click to browse</p>
+            <small>Single PDF · multiple students separated by pages-per-student setting</small>
+          </div>
+          <input type="file" id="file-pdf" accept=".pdf" style="display:none">
+        </div>
+
+        <!-- Rubric drop zone -->
+        <div class="card">
+          <div class="card-title">
+            <i class="ti ti-list-check" aria-hidden="true"></i> Rubric JSON
+          </div>
+          <div class="upload-zone" id="drop-rubric" role="button" tabindex="0" aria-label="Upload Rubric JSON">
+            <i class="ti ti-file-code" aria-hidden="true"></i>
+            <p id="rubric-label">Drop rubric.json here or click to browse</p>
+            <small>Must match the <strong>RubricSchema</strong> format (exam, course, pages_per_student, questions)</small>
+          </div>
+          <input type="file" id="file-rubric" accept=".json" style="display:none">
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer">
+            <input type="checkbox" id="mock-mode" style="width:16px;height:16px">
+            Mock mode <span style="color:var(--neutral-400)">(no API key needed — uses dummy responses)</span>
+          </label>
         </div>
 
         <button class="btn btn-primary" style="width:100%" id="submit-btn">
@@ -75,23 +101,8 @@ export async function render(container) {
         </button>
       </div>
 
-      <!-- Right: settings + what happens next -->
+      <!-- Right: workflow steps -->
       <div>
-        <div class="card">
-          <div class="card-title">Settings</div>
-          <div class="form-group">
-            <label class="form-label" for="pages-per-student">Pages per student</label>
-            <input type="text" id="pages-per-student" placeholder="e.g. 4">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="grading-mode">Grading mode</label>
-            <select id="grading-mode">
-              <option value="auto">AI + TA review</option>
-              <option value="manual">Manual only</option>
-            </select>
-          </div>
-        </div>
-
         <div class="card">
           <div class="card-title">What happens after upload</div>
           <div class="step-list">
@@ -105,85 +116,184 @@ export async function render(container) {
               </div>`).join('')}
           </div>
         </div>
+
+        <div class="card" id="api-status-card" style="display:none">
+          <div class="card-title">Pipeline status</div>
+          <div id="api-status-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress overlay (shown while grading runs) -->
+    <div id="progress-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;display:none;align-items:center;justify-content:center">
+      <div class="card" style="width:420px;text-align:center;padding:32px">
+        <i class="ti ti-loader-2 ti-spin" style="font-size:40px;color:var(--brand);margin-bottom:16px" aria-hidden="true"></i>
+        <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:8px" id="progress-title">Starting pipeline…</div>
+        <div style="font-size:var(--text-sm);color:var(--neutral-500)" id="progress-sub">This may take a minute. Don't close this tab.</div>
+        <div class="progress" style="margin-top:20px"><div class="progress-bar" id="progress-bar" style="width:20%;transition:width 0.8s ease"></div></div>
+        <div style="margin-top:8px;font-size:var(--text-xs);color:var(--neutral-400)" id="progress-step">Uploading files…</div>
       </div>
     </div>`;
 
-  bindUploadEvents(container);
+  bindEvents(container);
 }
 
-function bindUploadEvents(container) {
-  const dropZone  = container.querySelector('#drop-zone');
-  const fileInput = container.querySelector('#file-in');
-  const rubricSel = container.querySelector('#rubric-select');
-  const newZone   = container.querySelector('#new-rubric-zone');
+// ── Events ────────────────────────────────────────────────────────────────────
 
-  dropZone.addEventListener('click', () => fileInput.click());
-  dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
-  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag');
-    addFiles(e.dataTransfer.files, container);
-  });
+function bindEvents(container) {
+  const dropPdf    = container.querySelector('#drop-pdf');
+  const filePdf    = container.querySelector('#file-pdf');
+  const dropRubric = container.querySelector('#drop-rubric');
+  const fileRubric = container.querySelector('#file-rubric');
 
-  fileInput.addEventListener('change', () => addFiles(fileInput.files, container));
-  rubricSel.addEventListener('change', () => {
-    newZone.style.display = rubricSel.value === 'new' ? 'block' : 'none';
+  // PDF zone
+  dropPdf.addEventListener('click', () => filePdf.click());
+  dropPdf.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') filePdf.click(); });
+  dropPdf.addEventListener('dragover', e => { e.preventDefault(); dropPdf.classList.add('drag'); });
+  dropPdf.addEventListener('dragleave', () => dropPdf.classList.remove('drag'));
+  dropPdf.addEventListener('drop', e => {
+    e.preventDefault(); dropPdf.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f?.name.endsWith('.pdf')) setPdf(f, container);
+    else showToast('Please drop a .pdf file', 'error');
   });
+  filePdf.addEventListener('change', () => { if (filePdf.files[0]) setPdf(filePdf.files[0], container); });
+
+  // Rubric zone
+  dropRubric.addEventListener('click', () => fileRubric.click());
+  dropRubric.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileRubric.click(); });
+  dropRubric.addEventListener('dragover', e => { e.preventDefault(); dropRubric.classList.add('drag'); });
+  dropRubric.addEventListener('dragleave', () => dropRubric.classList.remove('drag'));
+  dropRubric.addEventListener('drop', e => {
+    e.preventDefault(); dropRubric.classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f?.name.endsWith('.json')) setRubric(f, container);
+    else showToast('Please drop a .json file', 'error');
+  });
+  fileRubric.addEventListener('change', () => { if (fileRubric.files[0]) setRubric(fileRubric.files[0], container); });
 
   container.querySelector('#submit-btn').addEventListener('click', () => handleSubmit(container));
 }
 
-function addFiles(files, container) {
-  for (const f of files) {
-    if (!uploadedFiles.find(x => x.name === f.name)) uploadedFiles.push({ name: f.name, size: f.size });
-  }
-  renderFileList(container);
+function setPdf(file, container) {
+  pdfFile = file;
+  container.querySelector('#pdf-label').textContent = `✓ ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+  container.querySelector('#drop-pdf').style.borderColor = 'var(--brand)';
 }
 
-function renderFileList(container) {
-  const listEl = container.querySelector('#file-list');
-  if (!listEl) return;
-  listEl.innerHTML = uploadedFiles.map((f, i) => `
-    <div class="row-item" style="border:1px solid var(--neutral-200);border-radius:var(--radius-md);margin-bottom:6px">
-      <div class="row-icon blue"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></div>
-      <div class="row-info">
-        <div class="row-name">${f.name}</div>
-        <div class="row-meta">${(f.size / 1024 / 1024).toFixed(1)} MB</div>
-      </div>
-      <button class="btn btn-sm btn-icon" data-remove="${i}" aria-label="Remove ${f.name}">
-        <i class="ti ti-x" aria-hidden="true"></i>
-      </button>
-    </div>`).join('');
-
-  listEl.querySelectorAll('[data-remove]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      uploadedFiles.splice(Number(btn.dataset.remove), 1);
-      renderFileList(container);
-    });
-  });
+function setRubric(file, container) {
+  rubricFile = file;
+  container.querySelector('#rubric-label').textContent = `✓ ${file.name}`;
+  container.querySelector('#drop-rubric').style.borderColor = 'var(--brand)';
 }
+
+// ── Submit & poll ─────────────────────────────────────────────────────────────
 
 async function handleSubmit(container) {
-  const name     = container.querySelector('#exam-name')?.value?.trim();
-  const course   = container.querySelector('#exam-course')?.value?.trim() || 'CS 301';
-  const rubricId = Number(container.querySelector('#rubric-select')?.value) || null;
+  if (!pdfFile)    { showToast('Please upload an exam PDF first', 'error');      return; }
+  if (!rubricFile) { showToast('Please upload a rubric JSON file first', 'error'); return; }
 
-  if (!name) { showToast('Enter an exam name first', 'error'); return; }
+  const mockMode = container.querySelector('#mock-mode')?.checked ?? false;
+  const btn      = container.querySelector('#submit-btn');
+  btn.disabled   = true;
 
-  const btn = container.querySelector('#submit-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader-2 ti-spin" aria-hidden="true"></i> Submitting…';
+  showOverlay(container, true);
+  setProgress(container, 20, 'Starting pipeline…', 'Uploading files to server…');
 
   try {
-    await createExam({ name, course, rubricId });
-    uploadedFiles = [];
-    showToast('Exam submitted — processing will begin shortly');
-    navigate('exams');
-  } catch {
-    showToast('Submission failed. Please try again.', 'error');
+    const { exam_id } = await startPipeline(pdfFile, rubricFile, null, mockMode);
+    store.activeExamId = exam_id;
+
+    const examName = container.querySelector('#exam-name')?.value?.trim() || `Exam ${exam_id.substring(5)}`;
+    const examCourse = container.querySelector('#exam-course')?.value?.trim() || 'CS 301';
+
+    await createExam({
+      id: exam_id,
+      name: examName,
+      course: examCourse,
+      rubricName: rubricFile.name
+    });
+
+    setProgress(container, 40, 'Ingestion complete', 'Splitting PDF into per-student pages…');
+    showToast(`Pipeline started — exam ${exam_id}`);
+
+    // Start polling
+    let progress = 40;
+    const steps  = ['Running OCR on handwritten pages…', 'AI grading in progress…', 'Waiting for TA review…'];
+    let stepIdx  = 0;
+
+    pollTimer = setInterval(async () => {
+      try {
+        const state = await getPipelineState(exam_id);
+
+        progress = Math.min(progress + 8, 85);
+        setProgress(container, progress, _statusLabel(state.status), steps[stepIdx % steps.length]);
+        stepIdx++;
+
+        if (state.status === 'error') {
+          clearInterval(pollTimer);
+          showOverlay(container, false);
+          showToast(`Pipeline error: ${state.error || 'An unexpected failure occurred on the server.'}`, 'error');
+          btn.disabled = false;
+          return;
+        }
+
+        if (state.next_review) {
+          clearInterval(pollTimer);
+          setProgress(container, 100, 'Queued for TA review', 'Exam has been processed and is ready for grading.');
+          
+          // Change the overlay to show a button to go back to exams instead of auto-redirecting
+          const overlay = container.querySelector('#progress-overlay');
+          const card = overlay.querySelector('.card');
+          card.innerHTML = `
+            <i class="ti ti-circle-check" style="font-size:48px;color:var(--brand);margin-bottom:16px" aria-hidden="true"></i>
+            <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:8px">Exam queued successfully!</div>
+            <div style="font-size:var(--text-sm);color:var(--neutral-500);margin-bottom:24px">
+              The AI has finished grading. This exam is now waiting in the TA queue for review.
+            </div>
+            <button class="btn btn-primary" id="btn-back-exams" style="width:100%;justify-content:center">
+              Back to Exams
+            </button>
+          `;
+          card.querySelector('#btn-back-exams').addEventListener('click', () => {
+            showOverlay(container, false);
+            navigate('exams');
+          });
+          return;
+        }
+
+        if (state.is_complete) {
+          clearInterval(pollTimer);
+          setProgress(container, 100, 'Grading complete!', 'Navigating to exams…');
+          setTimeout(() => { showOverlay(container, false); navigate('exams'); }, 800);
+        }
+      } catch (err) {
+        console.warn('[upload] Poll error:', err);
+      }
+    }, 2500);
+
+  } catch (err) {
+    showOverlay(container, false);
+    showToast(err.message ?? 'Submission failed', 'error');
     btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-send" aria-hidden="true"></i> Submit for grading';
   }
+}
+
+function showOverlay(container, show) {
+  const el = container.querySelector('#progress-overlay') ?? document.getElementById('progress-overlay');
+  if (el) el.style.display = show ? 'flex' : 'none';
+}
+
+function setProgress(container, pct, title, sub) {
+  const bar   = container.querySelector('#progress-bar')   ?? document.getElementById('progress-bar');
+  const titleEl = container.querySelector('#progress-title') ?? document.getElementById('progress-title');
+  const subEl   = container.querySelector('#progress-sub')   ?? document.getElementById('progress-sub');
+  const stepEl  = container.querySelector('#progress-step')  ?? document.getElementById('progress-step');
+  if (bar)    bar.style.width = `${pct}%`;
+  if (titleEl) titleEl.textContent = title;
+  if (stepEl)  stepEl.textContent  = sub;
+}
+
+function _statusLabel(status) {
+  return { processing: 'Grading in progress…', awaiting_review: 'Awaiting TA review', complete: 'Complete!', error: 'Error' }[status] ?? status;
 }

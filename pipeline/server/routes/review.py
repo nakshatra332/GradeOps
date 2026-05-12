@@ -90,23 +90,15 @@ async def submit_decision(exam_id: str, body: DecisionRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
-    # Resume the graph
-    result = graph.invoke(Command(resume=resume_value), config=_config(exam_id))
+    # ── Run pipeline resume in thread pool (non-blocking) ─────────────────────
+    import asyncio
+    from server.routes.pipeline import _executor, _resume_graph_sync
 
-    if result.get("error"):
-        raise HTTPException(status_code=500, detail=result["error"])
-
-    # Check for the next interrupt
-    snapshot = graph.get_state(_config(exam_id))
-    next_review = None
-    for task in snapshot.tasks:
-        if task.interrupts:
-            next_review = task.interrupts[0].value
-            break
+    cmd = Command(resume=resume_value)
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(_executor, _resume_graph_sync, cmd, exam_id)
 
     return {
         "exam_id":     exam_id,
-        "is_complete": not bool(snapshot.tasks),
-        "next_review": next_review,
-        "stats":       result.get("stats", {}),
+        "status":      "processing",
     }

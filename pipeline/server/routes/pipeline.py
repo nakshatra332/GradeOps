@@ -1,74 +1,126 @@
 """
 server/routes/pipeline.py — Pipeline management endpoints.
 
-POST /pipeline/start   → upload PDF + rubric, start the graph, return exam_id
+POST /pipeline/start   → upload PDF + rubric, save to disk, start grading
+                         in background; returns exam_id immediately.
 GET  /pipeline/{id}    → poll current state (students, stats, next interrupt)
 """
 
 from __future__ import annotations
-import json
+import asyncio
 import os
-import tempfile
+import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
-from langgraph.types import Command
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
+from config import settings
 from graph import graph
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
+
+# Thread pool for running the synchronous LangGraph graph without blocking FastAPI
+_executor = ThreadPoolExecutor(max_workers=4)
+
+# In-memory map of exam_id → pipeline status so the frontend can poll
+_pipeline_status: dict[str, str] = {}   # "processing" | "awaiting_review" | "complete" | "error"
 
 
 def _config(exam_id: str) -> dict:
     return {"configurable": {"thread_id": exam_id}}
 
 
+def _run_graph_sync(initial_state: dict, exam_id: str):
+    """
+    Run graph.invoke() synchronously in a thread-pool worker.
+    This keeps the FastAPI event loop free while the pipeline runs.
+    The graph pauses at the first interrupt() call and returns — the
+    frontend then polls GET /pipeline/{exam_id} to find the pending review.
+    """
+    try:
+        _pipeline_status[exam_id] = "processing"
+        result = graph.invoke(initial_state, config=_config(exam_id))
+        if result.get("error"):
+            _pipeline_status[exam_id] = "error"
+        else:
+            # Check if there is an interrupt pending
+            snapshot = graph.get_state(_config(exam_id))
+            has_interrupt = any(t.interrupts for t in snapshot.tasks)
+            _pipeline_status[exam_id] = "awaiting_review" if has_interrupt else "complete"
+    except Exception as exc:
+        _pipeline_status[exam_id] = "error"
+        print(f"[pipeline] Unhandled error for {exam_id}: {exc}")
+
+
+def _resume_graph_sync(resume_cmd, exam_id: str):
+    """
+    Run graph.invoke() synchronously with a resume Command in a thread-pool worker.
+    """
+    try:
+        _pipeline_status[exam_id] = "processing"
+        result = graph.invoke(resume_cmd, config=_config(exam_id))
+        if result.get("error"):
+            _pipeline_status[exam_id] = "error"
+        else:
+            snapshot = graph.get_state(_config(exam_id))
+            has_interrupt = any(t.interrupts for t in snapshot.tasks)
+            _pipeline_status[exam_id] = "awaiting_review" if has_interrupt else "complete"
+    except Exception as exc:
+        _pipeline_status[exam_id] = "error"
+        print(f"[pipeline] Unhandled error resuming {exam_id}: {exc}")
+
+
 @router.post("/start")
 async def start_pipeline(
-    pdf:    UploadFile = File(..., description="Scanned exam PDF"),
-    rubric: UploadFile = File(..., description="Grading rubric JSON"),
-    exam_id: str | None = Form(default=None, description="Optional exam ID"),
-    mock:   bool = Form(default=False, description="Use mock LLM responses"),
+    pdf:     UploadFile = File(...,       description="Scanned exam PDF"),
+    rubric:  UploadFile = File(...,       description="Grading rubric JSON"),
+    exam_id: str | None = Form(default=None,  description="Optional exam ID"),
+    mock:    bool       = Form(default=False, description="Use mock LLM responses"),
 ):
     """
-    Upload a PDF and rubric, then kick off the grading pipeline.
+    Upload a PDF and rubric JSON, then kick off the grading pipeline.
 
-    Returns the exam_id — use it to poll /pipeline/{exam_id} for status
-    and POST to /review/{exam_id}/decide for TA decisions.
+    The pipeline runs in a background thread. This endpoint returns
+    immediately with the exam_id so the frontend can start polling.
+
+    Poll GET /pipeline/{exam_id} for status and the next TA review.
     """
     if mock:
         os.environ["MOCK_LLM"] = "true"
+        settings.mock_llm = True
+    else:
+        os.environ.pop("MOCK_LLM", None)
+        settings.mock_llm = False
 
-    # Save uploaded files to temp directory
-    with tempfile.TemporaryDirectory() as tmpdir:
-        pdf_path    = Path(tmpdir) / pdf.filename
-        rubric_path = Path(tmpdir) / rubric.filename
+    eid = exam_id or f"exam_{uuid.uuid4().hex[:8]}"
 
-        pdf_path.write_bytes(await pdf.read())
-        rubric_raw = (await rubric.read()).decode()
+    # ── Save uploaded PDF to a permanent scratch directory ────────────────────
+    # (DO NOT use tempfile.TemporaryDirectory — it deletes the file before
+    #  the pipeline agent reads it off disk)
+    upload_dir = Path(settings.local_storage_path) / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
 
-        # Build initial state and invoke graph (runs until first interrupt)
-        import uuid
-        eid = exam_id or f"exam_{uuid.uuid4().hex[:8]}"
+    pdf_path = upload_dir / f"{eid}.pdf"
+    pdf_path.write_bytes(await pdf.read())
+    rubric_raw = (await rubric.read()).decode()
 
-        initial_state = {
-            "_pdf_path":          str(pdf_path),
-            "_rubric_raw":        rubric_raw,
-            "exam_id":            eid,
-            "students":           [],
-            "current_review_idx": 0,
-            "stats":              {},
-            "error":              None,
-            "rubric":             {},
-        }
+    initial_state = {
+        "_pdf_path":          str(pdf_path),
+        "_rubric_raw":        rubric_raw,
+        "exam_id":            eid,
+        "students":           [],
+        "current_review_idx": 0,
+        "stats":              {},
+        "error":              None,
+        "rubric":             {},
+    }
 
-        result = graph.invoke(initial_state, config=_config(eid))
+    # ── Run pipeline in thread pool (non-blocking) ────────────────────────────
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(_executor, _run_graph_sync, initial_state, eid)
 
-    if result.get("error"):
-        raise HTTPException(status_code=422, detail=result["error"])
-
-    return {"exam_id": eid, "student_count": len(result.get("students", []))}
+    return {"exam_id": eid, "status": "processing"}
 
 
 @router.get("/{exam_id}")
@@ -76,14 +128,24 @@ async def get_pipeline_state(exam_id: str):
     """
     Return the current pipeline state for an exam.
 
-    Includes:
-      - students with their transcripts, AI grades, and TA decisions
-      - stats (if finalized)
-      - next_review: the student currently awaiting TA action (if any)
+    The frontend should poll this endpoint every 2–3 seconds while
+    status is "processing". When next_review is non-null, the TA
+    review UI should be shown. When is_complete is true, show stats.
     """
     snapshot = graph.get_state(_config(exam_id))
-    if not snapshot:
-        raise HTTPException(status_code=404, detail=f"Exam {exam_id!r} not found")
+    pipeline_status = _pipeline_status.get(exam_id, "unknown")
+
+    # If graph has no state yet (still initialising), return early
+    if not snapshot or not snapshot.values:
+        return {
+            "exam_id":     exam_id,
+            "status":      pipeline_status,
+            "students":    [],
+            "stats":       {},
+            "error":       None,
+            "next_review": None,
+            "is_complete": False,
+        }
 
     state = snapshot.values
     next_review = None
@@ -93,11 +155,14 @@ async def get_pipeline_state(exam_id: str):
             next_review = task.interrupts[0].value
             break
 
+    is_complete = not bool(snapshot.tasks) and pipeline_status != "processing"
+
     return {
         "exam_id":     state.get("exam_id"),
+        "status":      pipeline_status,
         "students":    state.get("students", []),
         "stats":       state.get("stats", {}),
         "error":       state.get("error"),
         "next_review": next_review,
-        "is_complete": not bool(snapshot.tasks),
+        "is_complete": is_complete,
     }

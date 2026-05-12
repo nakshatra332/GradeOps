@@ -17,9 +17,14 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────────
     google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
+    groq_api_key: str   = Field(default="", alias="GROQ_API_KEY")
 
-    ocr_model: str       = Field(default="gemini-2.0-flash",        alias="OCR_MODEL")
-    grading_model: str   = Field(default="gemini-1.5-pro",          alias="GRADING_MODEL")
+    # Vision OCR → Gemini Flash (only provider with vision free tier)
+    ocr_model: str       = Field(default="gemini-2.0-flash",          alias="OCR_MODEL")
+    # Text grading → Groq (generous free limits, extremely fast)
+    grading_model: str   = Field(default="llama3-70b-8192",           alias="GRADING_MODEL")
+    grading_provider: str = Field(default="groq",                     alias="GRADING_PROVIDER")
+    # Embeddings → Gemini (generous free limits for text-embedding)
     embedding_model: str = Field(default="models/text-embedding-004", alias="EMBEDDING_MODEL")
 
     # ── Thresholds ────────────────────────────────────────────
@@ -32,6 +37,12 @@ class Settings(BaseSettings):
     local_storage_path: str = Field(default="./scratch", alias="LOCAL_STORAGE_PATH")
     s3_bucket: str         = Field(default="",         alias="S3_BUCKET")
     gcs_bucket: str        = Field(default="",         alias="GCS_BUCKET")
+
+    # ── Concurrency & Resilience ─────────────────────────────
+    # Max simultaneous LLM calls per agent (prevents rate-limit spikes)
+    llm_concurrency: int = Field(default=4, alias="LLM_CONCURRENCY")
+    # Max retry attempts on transient API errors (429, 503)
+    llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
 
     # ── Dev ───────────────────────────────────────────────────
     mock_llm: bool = Field(default=False, alias="MOCK_LLM")

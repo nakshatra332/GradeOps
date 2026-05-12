@@ -3,6 +3,7 @@
  */
 
 import { store, delay } from '../state.js';
+import { getPipelineState } from './pipeline.js';
 
 export async function getPendingReviews() {
   await delay();
@@ -10,8 +11,30 @@ export async function getPendingReviews() {
 }
 
 export async function getCompletedReviews() {
-  await delay();
-  return store.pendingReviews.filter(r => r.status !== 'pending').map(r => ({ ...r }));
+  const completed = [];
+  for (const exam of store.exams) {
+    if (exam.status === 'processing' || exam.status === 'graded') {
+      try {
+        const state = await getPipelineState(exam.id);
+        const students = state.students || [];
+        for (const s of students) {
+          if (s.ta_decision) {
+            const maxScore = s.grade_output?.question_grades?.reduce((sum, q) => sum + q.max_score, 0) || 100;
+            completed.push({
+              student: s.student_id,
+              q: exam.name,
+              ai_score: s.grade_output?.total_score || 0,
+              max: maxScore,
+              status: s.ta_decision === 'approve' ? 'approved' : 'overridden',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch state for completed reviews', err);
+      }
+    }
+  }
+  return completed;
 }
 
 export async function approveReview(id) {
@@ -45,9 +68,10 @@ export async function skipReview(id) {
 
 export async function getReviewStats() {
   await delay();
+  const pendingCount = store.exams.filter(e => e.status === 'processing').length;
   return {
-    pending:    store.pendingReviews.filter(r => r.status === 'pending').length,
-    approved:   store.pendingReviews.filter(r => r.status === 'approved').length,
-    overridden: store.pendingReviews.filter(r => r.status === 'overridden').length,
+    pending: pendingCount,
+    approved: 0,
+    overridden: 0,
   };
 }

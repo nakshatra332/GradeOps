@@ -4,9 +4,11 @@ agents/ocr.py — Agent 2: OCR / Vision transcription.
 Sends each student's page images to Gemini Flash (a Vision Language Model)
 and gets back a structured transcript with confidence score.
 
-Runs all students concurrently using asyncio.gather for throughput.
-The node itself is sync (LangGraph requirement for simple nodes) but
-spawns an event loop internally for the async calls.
+Rate-limit strategy (same as grading.py):
+  - asyncio.Semaphore throttles concurrent Vision API calls to
+    settings.llm_concurrency (default 2 — conservative for OCR free tier).
+  - tenacity retries on 429 / 503 with exponential back-off, then pauses
+    for exactly the retry-delay the API reports before giving up.
 """
 
 from __future__ import annotations
@@ -14,6 +16,13 @@ import asyncio
 import base64
 import json
 from pathlib import Path
+
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from config import settings
 from schemas.outputs import OCROutput
@@ -36,7 +45,7 @@ def _mock_ocr(student_id: str) -> OCROutput:
     )
 
 
-# ── Real Gemini OCR ───────────────────────────────────────────────────────────
+# ── Prompt ────────────────────────────────────────────────────────────────────
 
 def _build_ocr_prompt() -> str:
     return (
@@ -49,14 +58,21 @@ def _build_ocr_prompt() -> str:
     )
 
 
-async def _ocr_student_async(
-    student: StudentRecord,
-    model,  # ChatGoogleGenerativeAI instance
-) -> OCROutput:
-    """Send all pages for one student to the VLM and parse the response."""
-    from langchain_core.messages import HumanMessage
+# ── Throttled OCR task ────────────────────────────────────────────────────────
 
-    # Build a single message with all page images as base64 inline data
+async def _ocr_student_throttled(
+    student: StudentRecord,
+    model,
+    semaphore: asyncio.Semaphore,
+) -> OCROutput:
+    """
+    Run OCR for one student, respecting the concurrency semaphore.
+    Retries on transient API errors with exponential back-off.
+    """
+    from langchain_core.messages import HumanMessage
+    from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
+
+    # Build message with all page images inline
     content: list[dict] = [{"type": "text", "text": _build_ocr_prompt()}]
     for page_path in student["page_paths"]:
         img_bytes = Path(page_path).read_bytes()
@@ -66,20 +82,51 @@ async def _ocr_student_async(
             "image_url": {"url": f"data:image/png;base64,{b64}"},
         })
 
-    response = await model.ainvoke([HumanMessage(content=content)])
+    @retry(
+        retry=retry_if_exception_type((ChatGoogleGenerativeAIError, Exception)),
+        stop=stop_after_attempt(settings.llm_max_retries),
+        wait=wait_exponential(multiplier=1, min=10, max=60),
+        reraise=True,
+    )
+    async def _call() -> OCROutput:
+        async with semaphore:
+            response = await model.ainvoke([HumanMessage(content=content)])
 
-    # Parse JSON from response text
-    raw = response.content.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip("json").strip()
+        # Parse JSON — strip markdown fences if present
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
 
-    data = json.loads(raw)
-    return OCROutput(**data)
+        try:
+            data = json.loads(raw)
+            return OCROutput(**data)
+        except (json.JSONDecodeError, TypeError) as exc:
+            # If the LLM returned garbage, fall back gracefully
+            return OCROutput(
+                transcript=raw[:2000],  # keep whatever text was returned
+                confidence=0.0,
+                illegible_regions=[f"JSON parse error: {exc}"],
+            )
+
+    try:
+        return await _call()
+    except Exception as exc:
+        return OCROutput(
+            transcript=f"[API Error] Could not process image due to rate limits: {exc}",
+            confidence=0.0,
+            illegible_regions=["API Quota Exhausted"],
+        )
 
 
-async def _run_all_ocr(students: list[StudentRecord], model) -> list[OCROutput]:
-    """Run OCR for all students concurrently."""
-    tasks = [_ocr_student_async(s, model) for s in students]
+async def _run_all_ocr(
+    students: list[StudentRecord],
+    model,
+) -> list[OCROutput]:
+    """Run OCR for all students concurrently, throttled by settings.llm_concurrency."""
+    # Use a lower concurrency for OCR (vision calls are heavier than text calls)
+    ocr_concurrency = max(1, settings.llm_concurrency // 2)
+    semaphore = asyncio.Semaphore(ocr_concurrency)
+    tasks = [_ocr_student_throttled(s, model, semaphore) for s in students]
     return await asyncio.gather(*tasks)
 
 
@@ -92,7 +139,7 @@ def ocr_agent(state: ExamGradingState) -> dict:
     Writes transcript and ocr_confidence back into each StudentRecord.
     """
     if state.get("error"):
-        return {}  # propagate error from ingestion without doing work
+        return {}
 
     students: list[StudentRecord] = list(state["students"])
 
@@ -107,12 +154,14 @@ def ocr_agent(state: ExamGradingState) -> dict:
         )
         try:
             loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
         results = loop.run_until_complete(_run_all_ocr(students, model))
 
-    # Write results back into student records
     updated = []
     for student, ocr in zip(students, results):
         updated_student = dict(student)
