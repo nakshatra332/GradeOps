@@ -6,10 +6,10 @@ Usage:
     python main.py --rubric examples/rubric.json --pdf examples/sample_exam.pdf --mock
 
     # Real Gemini run:
-    python main.py --rubric examples/rubric.json --pdf path/to/exam.pdf
+    python main.py --rubric examples/rubric.json --pdfs path/to/student1.pdf path/to/student2.pdf
 
     # Auto-approve all students (no interactive prompts):
-    python main.py --rubric examples/rubric.json --pdf exam.pdf --mock --auto-approve
+    python main.py --rubric examples/rubric.json --pdfs exam.pdf --mock --auto-approve
 
 The CLI simulates the TA review loop interactively — in production,
 the FastAPI server handles decisions from the GradeOps dashboard instead.
@@ -28,7 +28,7 @@ from langgraph.types import Command
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="GradeOps grading pipeline CLI")
     p.add_argument("--rubric",       required=True, help="Path to rubric JSON file")
-    p.add_argument("--pdf",          required=True, help="Path to exam PDF")
+    p.add_argument("--pdfs",         nargs="+", required=True, help="Paths to individual exam PDFs")
     p.add_argument("--exam-id",      default=None,  help="Optional exam ID (auto-generated if omitted)")
     p.add_argument("--mock",         action="store_true", help="Use mock LLM responses (no API key needed)")
     p.add_argument("--auto-approve", action="store_true", help="Approve all AI grades without prompting")
@@ -82,18 +82,18 @@ def _interactive_review(interrupt_payload: dict) -> str | dict:
             print("  Type A, O, E, or S.")
 
 
-def run_pipeline(rubric_path: str, pdf_path: str, exam_id: str | None, auto_approve: bool):
+def run_pipeline(rubric_path: str, pdf_paths: list[str], exam_id: str | None, auto_approve: bool):
     """Run the full graph, handling HITL interrupts in the CLI."""
     from graph import graph
     from langgraph.types import Command
     from langgraph.errors import GraphInterrupt
 
     rubric_raw = Path(rubric_path).read_text()
-    thread_id  = exam_id or f"cli_{Path(pdf_path).stem}"
+    thread_id  = exam_id or f"cli_{Path(pdf_paths[0]).stem}"
     config     = {"configurable": {"thread_id": thread_id}}
 
     initial_state = {
-        "_pdf_path":   pdf_path,
+        "_pdf_paths":  pdf_paths,
         "_rubric_raw": rubric_raw,
         "exam_id":     exam_id or "",
         "students":    [],
@@ -105,7 +105,7 @@ def run_pipeline(rubric_path: str, pdf_path: str, exam_id: str | None, auto_appr
 
     print(f"\n[pipeline] Starting — exam: {thread_id}")
     print(f"[pipeline] Rubric:   {rubric_path}")
-    print(f"[pipeline] PDF:      {pdf_path}")
+    print(f"[pipeline] PDFs:     {len(pdf_paths)} files")
     print(f"[pipeline] Mock LLM: {os.environ.get('MOCK_LLM', 'false')}")
 
     # Stream events from the graph; collect the final state
@@ -165,7 +165,7 @@ def main():
 
     run_pipeline(
         rubric_path=args.rubric,
-        pdf_path=args.pdf,
+        pdf_paths=args.pdfs,
         exam_id=args.exam_id,
         auto_approve=args.auto_approve,
     )

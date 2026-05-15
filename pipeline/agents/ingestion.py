@@ -19,7 +19,7 @@ from pydantic import ValidationError
 from config import settings
 from schemas.rubric import RubricSchema
 from state import ExamGradingState, StudentRecord, make_student_record
-from tools.pdf_splitter import split_pdf_to_images
+from tools.pdf_splitter import convert_pdf_to_images
 from tools.storage import get_storage
 
 
@@ -28,12 +28,15 @@ def ingestion_agent(state: ExamGradingState) -> dict:
     LangGraph node function.
     
     Expects state to contain:
-        _pdf_path  (str): path to the uploaded PDF (set by the caller before graph.invoke())
+        _pdf_paths  (list[str]): paths to the uploaded PDFs
         _rubric_raw (str | dict): raw rubric JSON string or dict
 
     Returns a partial state dict that LangGraph merges into ExamGradingState.
     """
-    pdf_path   = state.get("_pdf_path", "")
+    if state.get("error"):
+        return {}
+
+    pdf_paths  = state.get("_pdf_paths", [])
     rubric_raw = state.get("_rubric_raw", {})
 
     # ── 1. Validate rubric ────────────────────────────────────────────────────
@@ -44,28 +47,24 @@ def ingestion_agent(state: ExamGradingState) -> dict:
     except (json.JSONDecodeError, ValidationError) as exc:
         return {"error": f"Rubric validation failed: {exc}"}
 
-    # ── 2. Split PDF into per-student page groups ─────────────────────────────
-    try:
-        student_page_groups: list[list[bytes]] = split_pdf_to_images(
-            pdf_path=pdf_path,
-            pages_per_student=rubric.pages_per_student,
-        )
-    except (FileNotFoundError, ValueError) as exc:
-        return {"error": f"PDF splitting failed: {exc}"}
-
-    # ── 3. Assign IDs and upload pages ────────────────────────────────────────
+    # ── 2. Process each student PDF ───────────────────────────────────────────
     exam_id = state.get("exam_id") or f"exam_{uuid.uuid4().hex[:8]}"
     storage = get_storage()
     students: list[StudentRecord] = []
 
-    for i, pages in enumerate(student_page_groups):
+    for i, path in enumerate(pdf_paths):
         student_id = f"S{i + 1:03d}"
         page_paths: list[str] = []
 
+        try:
+            pages = convert_pdf_to_images(pdf_path=path)
+        except Exception as exc:
+            return {"error": f"Failed to process PDF {path}: {exc}"}
+
         for page_idx, png_bytes in enumerate(pages):
             key  = f"{exam_id}/{student_id}/page_{page_idx + 1}.png"
-            path = storage.write(key, png_bytes)
-            page_paths.append(path)
+            storage_path = storage.write(key, png_bytes)
+            page_paths.append(storage_path)
 
         students.append(make_student_record(student_id=student_id, page_paths=page_paths))
 

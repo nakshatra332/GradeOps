@@ -16,7 +16,7 @@ import { store }     from '../state.js';
 import { navigate }  from '../router.js';
 import { showToast } from '../components/toast.js';
 
-let pdfFile    = null;
+let pdfFiles   = [];
 let rubricFile = null;
 let pollTimer  = null;
 
@@ -30,7 +30,7 @@ const WORKFLOW_STEPS = [
 // ── Render ────────────────────────────────────────────────────────────────────
 
 export async function render(container) {
-  pdfFile    = null;
+  pdfFiles   = [];
   rubricFile = null;
   clearInterval(pollTimer);
 
@@ -55,38 +55,33 @@ export async function render(container) {
             <label class="form-label" for="exam-course">Course code</label>
             <input type="text" id="exam-course" value="CS 301">
           </div>
-          <div class="form-group">
-            <label class="form-label" for="pages-per-student">Pages per student
-              <span style="font-weight:400;color:var(--neutral-400)">(must match rubric)</span>
-            </label>
-            <input type="number" id="pages-per-student" placeholder="e.g. 2" min="1" value="2">
-          </div>
+
         </div>
 
         <!-- PDF drop zone -->
         <div class="card">
           <div class="card-title">
-            <i class="ti ti-file-type-pdf" aria-hidden="true"></i> Exam PDF
+            <i class="ti ti-file-type-pdf" aria-hidden="true"></i> Student PDFs
           </div>
           <div class="upload-zone" id="drop-pdf" role="button" tabindex="0" aria-label="Upload PDF">
             <i class="ti ti-cloud-upload" aria-hidden="true"></i>
-            <p id="pdf-label">Drop scanned exam PDF here or click to browse</p>
-            <small>Single PDF · multiple students separated by pages-per-student setting</small>
+            <p id="pdf-label">Drop student PDFs here or click to browse</p>
+            <small>Multiple PDFs · One PDF per student</small>
           </div>
-          <input type="file" id="file-pdf" accept=".pdf" style="display:none">
+          <input type="file" id="file-pdf" accept=".pdf" multiple style="display:none">
         </div>
 
         <!-- Rubric drop zone -->
         <div class="card">
           <div class="card-title">
-            <i class="ti ti-list-check" aria-hidden="true"></i> Rubric JSON
+            <i class="ti ti-list-check" aria-hidden="true"></i> Rubric / Marking Scheme
           </div>
-          <div class="upload-zone" id="drop-rubric" role="button" tabindex="0" aria-label="Upload Rubric JSON">
+          <div class="upload-zone" id="drop-rubric" role="button" tabindex="0" aria-label="Upload Rubric JSON or PDF">
             <i class="ti ti-file-code" aria-hidden="true"></i>
-            <p id="rubric-label">Drop rubric.json here or click to browse</p>
-            <small>Must match the <strong>RubricSchema</strong> format (exam, course, pages_per_student, questions)</small>
+            <p id="rubric-label">Drop rubric.json or marking_scheme.pdf here</p>
+            <small>JSON must match <strong>RubricSchema</strong>. PDFs will be extracted automatically.</small>
           </div>
-          <input type="file" id="file-rubric" accept=".json" style="display:none">
+          <input type="file" id="file-rubric" accept=".json,.pdf" style="display:none">
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
@@ -153,11 +148,11 @@ function bindEvents(container) {
   dropPdf.addEventListener('dragleave', () => dropPdf.classList.remove('drag'));
   dropPdf.addEventListener('drop', e => {
     e.preventDefault(); dropPdf.classList.remove('drag');
-    const f = e.dataTransfer.files[0];
-    if (f?.name.endsWith('.pdf')) setPdf(f, container);
-    else showToast('Please drop a .pdf file', 'error');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'));
+    if (files.length > 0) setPdf(files, container);
+    else showToast('Please drop .pdf files', 'error');
   });
-  filePdf.addEventListener('change', () => { if (filePdf.files[0]) setPdf(filePdf.files[0], container); });
+  filePdf.addEventListener('change', () => { if (filePdf.files.length) setPdf(filePdf.files, container); });
 
   // Rubric zone
   dropRubric.addEventListener('click', () => fileRubric.click());
@@ -167,17 +162,18 @@ function bindEvents(container) {
   dropRubric.addEventListener('drop', e => {
     e.preventDefault(); dropRubric.classList.remove('drag');
     const f = e.dataTransfer.files[0];
-    if (f?.name.endsWith('.json')) setRubric(f, container);
-    else showToast('Please drop a .json file', 'error');
+    if (f?.name.endsWith('.json') || f?.name.endsWith('.pdf')) setRubric(f, container);
+    else showToast('Please drop a .json or .pdf file', 'error');
   });
   fileRubric.addEventListener('change', () => { if (fileRubric.files[0]) setRubric(fileRubric.files[0], container); });
 
   container.querySelector('#submit-btn').addEventListener('click', () => handleSubmit(container));
 }
 
-function setPdf(file, container) {
-  pdfFile = file;
-  container.querySelector('#pdf-label').textContent = `✓ ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+function setPdf(files, container) {
+  pdfFiles = Array.from(files);
+  const size = pdfFiles.reduce((acc, f) => acc + f.size, 0);
+  container.querySelector('#pdf-label').textContent = `✓ ${pdfFiles.length} files selected (${(size / 1024 / 1024).toFixed(1)} MB)`;
   container.querySelector('#drop-pdf').style.borderColor = 'var(--brand)';
 }
 
@@ -190,7 +186,7 @@ function setRubric(file, container) {
 // ── Submit & poll ─────────────────────────────────────────────────────────────
 
 async function handleSubmit(container) {
-  if (!pdfFile)    { showToast('Please upload an exam PDF first', 'error');      return; }
+  if (!pdfFiles || pdfFiles.length === 0)    { showToast('Please upload student PDFs first', 'error');      return; }
   if (!rubricFile) { showToast('Please upload a rubric JSON file first', 'error'); return; }
 
   const mockMode = container.querySelector('#mock-mode')?.checked ?? false;
@@ -201,7 +197,7 @@ async function handleSubmit(container) {
   setProgress(container, 20, 'Starting pipeline…', 'Uploading files to server…');
 
   try {
-    const { exam_id } = await startPipeline(pdfFile, rubricFile, null, mockMode);
+    const { exam_id } = await startPipeline(pdfFiles, rubricFile, null, mockMode);
     store.activeExamId = exam_id;
 
     const examName = container.querySelector('#exam-name')?.value?.trim() || `Exam ${exam_id.substring(5)}`;

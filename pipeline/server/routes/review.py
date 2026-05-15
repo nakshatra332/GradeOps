@@ -92,7 +92,10 @@ async def submit_decision(exam_id: str, body: DecisionRequest):
 
     # ── Run pipeline resume in thread pool (non-blocking) ─────────────────────
     import asyncio
-    from server.routes.pipeline import _executor, _resume_graph_sync
+    from server.routes.pipeline import _executor, _resume_graph_sync, _pipeline_status
+
+    # Set status to processing immediately so the frontend knows to wait
+    _pipeline_status[exam_id] = "processing"
 
     cmd = Command(resume=resume_value)
     loop = asyncio.get_event_loop()

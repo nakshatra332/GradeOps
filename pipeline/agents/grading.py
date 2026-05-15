@@ -247,7 +247,19 @@ def grading_agent(state: ExamGradingState) -> dict:
             google_api_key=settings.google_api_key,
         )
         try:
-            embeddings = embed_model.embed_documents(transcripts)
+            import time
+            time.sleep(6.5)  # Strict pace: <10 requests per minute
+            
+            # Use tenacity specifically for embeddings to wait out the 1 min reset
+            @retry(
+                stop=stop_after_attempt(5),
+                wait=wait_exponential(multiplier=2, min=10, max=65),
+                reraise=True
+            )
+            def _get_embeddings():
+                return embed_model.embed_documents(transcripts)
+                
+            embeddings = _get_embeddings()
         except Exception as exc:
             print(f"[grading] API Error during embeddings: {exc}")
             embeddings = [[0.0] * 768 for _ in transcripts]

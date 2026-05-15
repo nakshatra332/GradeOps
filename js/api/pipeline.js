@@ -17,9 +17,15 @@ const API_BASE = 'http://localhost:8000';
  * @param {boolean} mock       - Use mock LLM (no API key needed)
  * @returns {{ exam_id: string, status: string }}
  */
-export async function startPipeline(pdfFile, rubricFile, examId = null, mock = false) {
+export async function startPipeline(pdfFiles, rubricFile, examId = null, mock = false) {
   const form = new FormData();
-  form.append('pdf',    pdfFile);
+  
+  if (Array.isArray(pdfFiles)) {
+    pdfFiles.forEach(f => form.append('pdfs', f));
+  } else {
+    form.append('pdfs', pdfFiles);
+  }
+
   form.append('rubric', rubricFile);
   if (examId) form.append('exam_id', examId);
   form.append('mock', String(mock));

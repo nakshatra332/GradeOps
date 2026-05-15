@@ -20,6 +20,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from state import ExamGradingState
+from agents.rubric_extractor import extract_rubric_agent
 from agents.ingestion import ingestion_agent
 from agents.ocr       import ocr_agent
 from agents.grading   import grading_agent
@@ -44,6 +45,7 @@ def build_graph(checkpointer=None):
     builder = StateGraph(ExamGradingState)
 
     # ── Nodes ──────────────────────────────────────────────────────────────────
+    builder.add_node("extract_rubric", extract_rubric_agent)
     builder.add_node("ingest",   ingestion_agent)
     builder.add_node("ocr",      ocr_agent)
     builder.add_node("grade",    grading_agent)
@@ -51,8 +53,9 @@ def build_graph(checkpointer=None):
     builder.add_node("finalize", finalize_agent)
 
     # ── Edges ──────────────────────────────────────────────────────────────────
-    builder.add_edge(START,     "ingest")
-    builder.add_edge("ingest",  "ocr")
+    builder.add_edge(START,            "extract_rubric")
+    builder.add_edge("extract_rubric", "ingest")
+    builder.add_edge("ingest",         "ocr")
     builder.add_edge("ocr",     "grade")
     builder.add_edge("grade",   "review")
 

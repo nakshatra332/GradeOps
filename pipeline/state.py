@@ -47,8 +47,9 @@ class StudentRecord(TypedDict):
 
 class ExamGradingState(TypedDict):
     """Top-level LangGraph state for one exam batch."""
-    _pdf_path: str                 # Path to uploaded PDF
-    _rubric_raw: str | dict        # Raw rubric JSON string or dict
+    _pdf_paths: list[str]          # Paths to individual student PDFs
+    _rubric_raw: str | dict | None # Raw rubric JSON string or dict
+    _rubric_pdf_path: str | None   # Path to uploaded rubric PDF
 
     exam_id: str
     rubric: dict                   # serialised RubricSchema (dicts survive checkpointing)

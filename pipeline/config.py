@@ -19,10 +19,15 @@ class Settings(BaseSettings):
     google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
     groq_api_key: str   = Field(default="", alias="GROQ_API_KEY")
 
-    # Vision OCR → Gemini Flash (only provider with vision free tier)
+    # Vision OCR → Gemini Flash (default) or local Qwen-VL
     ocr_model: str       = Field(default="gemini-2.0-flash",          alias="OCR_MODEL")
+    ocr_backend: str     = Field(default="qwen_local",               alias="OCR_BACKEND")
+    qwen_model_id: str   = Field(default="Qwen/Qwen-VL-Chat",         alias="QWEN_MODEL_ID")
+    qwen_device: str     = Field(default="auto",                     alias="QWEN_DEVICE")
+    qwen_dtype: str      = Field(default="bf16",                     alias="QWEN_DTYPE")
+    qwen_max_new_tokens: int = Field(default=512,                      alias="QWEN_MAX_NEW_TOKENS")
     # Text grading → Groq (generous free limits, extremely fast)
-    grading_model: str   = Field(default="llama3-70b-8192",           alias="GRADING_MODEL")
+    grading_model: str   = Field(default="llama-3.3-70b-versatile",   alias="GRADING_MODEL")
     grading_provider: str = Field(default="groq",                     alias="GRADING_PROVIDER")
     # Embeddings → Gemini (generous free limits for text-embedding)
     embedding_model: str = Field(default="models/text-embedding-004", alias="EMBEDDING_MODEL")
@@ -42,7 +47,7 @@ class Settings(BaseSettings):
     # Max simultaneous LLM calls per agent (prevents rate-limit spikes)
     llm_concurrency: int = Field(default=4, alias="LLM_CONCURRENCY")
     # Max retry attempts on transient API errors (429, 503)
-    llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
+    llm_max_retries: int = Field(default=5, alias="LLM_MAX_RETRIES")
 
     # ── Dev ───────────────────────────────────────────────────
     mock_llm: bool = Field(default=False, alias="MOCK_LLM")

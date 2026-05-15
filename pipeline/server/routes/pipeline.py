@@ -73,7 +73,7 @@ def _resume_graph_sync(resume_cmd, exam_id: str):
 
 @router.post("/start")
 async def start_pipeline(
-    pdf:     UploadFile = File(...,       description="Scanned exam PDF"),
+    pdfs:    list[UploadFile] = File(..., description="List of individual student exam PDFs"),
     rubric:  UploadFile = File(...,       description="Grading rubric JSON"),
     exam_id: str | None = Form(default=None,  description="Optional exam ID"),
     mock:    bool       = Form(default=False, description="Use mock LLM responses"),
@@ -95,19 +95,32 @@ async def start_pipeline(
 
     eid = exam_id or f"exam_{uuid.uuid4().hex[:8]}"
 
-    # ── Save uploaded PDF to a permanent scratch directory ────────────────────
+    # ── Save uploaded files to a permanent scratch directory ──────────────────
     # (DO NOT use tempfile.TemporaryDirectory — it deletes the file before
     #  the pipeline agent reads it off disk)
     upload_dir = Path(settings.local_storage_path) / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    pdf_path = upload_dir / f"{eid}.pdf"
-    pdf_path.write_bytes(await pdf.read())
-    rubric_raw = (await rubric.read()).decode()
+    pdf_paths = []
+    for i, p in enumerate(pdfs):
+        path = upload_dir / f"{eid}_student_{i+1:03d}.pdf"
+        path.write_bytes(await p.read())
+        pdf_paths.append(str(path))
+
+    rubric_raw = None
+    rubric_pdf_path = None
+
+    if rubric.filename and rubric.filename.lower().endswith(".pdf"):
+        rubric_file_path = upload_dir / f"{eid}_rubric.pdf"
+        rubric_file_path.write_bytes(await rubric.read())
+        rubric_pdf_path = str(rubric_file_path)
+    else:
+        rubric_raw = (await rubric.read()).decode()
 
     initial_state = {
-        "_pdf_path":          str(pdf_path),
+        "_pdf_paths":         pdf_paths,
         "_rubric_raw":        rubric_raw,
+        "_rubric_pdf_path":   rubric_pdf_path,
         "exam_id":            eid,
         "students":           [],
         "current_review_idx": 0,
@@ -117,6 +130,7 @@ async def start_pipeline(
     }
 
     # ── Run pipeline in thread pool (non-blocking) ────────────────────────────
+    _pipeline_status[eid] = "processing"
     loop = asyncio.get_event_loop()
     loop.run_in_executor(_executor, _run_graph_sync, initial_state, eid)
 
