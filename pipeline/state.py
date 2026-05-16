@@ -15,8 +15,8 @@ from __future__ import annotations
 from typing import Any
 from typing_extensions import TypedDict
 
-from schemas.rubric import RubricSchema
-from schemas.outputs import GradeOutput, FinalGrade
+from pipeline.schemas.rubric import RubricSchema
+from pipeline.schemas.outputs import GradeOutput, FinalGrade
 
 
 class StudentRecord(TypedDict):
