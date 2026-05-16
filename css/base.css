@@ -1,0 +1,71 @@
+/* css/base.css — Design tokens, reset, global typography */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Layout */
+  --sidebar: 216px;
+  --hdr:     52px;
+
+  /* Brand */
+  --brand:        #1D9E75;
+  --brand-dark:   #0F6E56;
+  --brand-darker: #085041;
+  --brand-tint:   #E1F5EE;
+  --brand-tint2:  #D0EDDF;
+
+  /* Semantic */
+  --danger:        #C0392B;
+  --danger-tint:   #FDECEA;
+  --warning:       #92500D;
+  --warning-tint:  #FEF3E2;
+  --info:          #1A5EA8;
+  --info-tint:     #E8F1FC;
+
+  /* Neutral */
+  --neutral-50:  #F9F9F8;
+  --neutral-100: #F2F2F0;
+  --neutral-200: #E6E5E2;
+  --neutral-400: #B0AFA9;
+  --neutral-600: #6B6A65;
+  --neutral-900: #1A1A18;
+
+  /* Typography scale */
+  --text-xs:   11px;
+  --text-sm:   12px;
+  --text-base: 13px;
+  --text-md:   15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+
+  /* Radius */
+  --radius-sm:  5px;
+  --radius-md:  8px;
+  --radius-lg:  10px;
+  --radius-xl:  14px;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05);
+
+  /* Transitions */
+  --t-fast: 120ms ease;
+  --t-base: 200ms ease;
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+  min-height: 100vh;
+  font-size: var(--text-base);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Inter font — loaded via Google Fonts in index.html */

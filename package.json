@@ -1,0 +1,15 @@
+{
+  "name": "gradeops",
+  "version": "1.0.0",
+  "description": "GradeOps — Human-in-the-Loop AI grading portal",
+  "private": true,
+  "scripts": {
+    "dev":        "npx serve . --listen 3000 --no-clipboard",
+    "start":      "export PYTHONPATH=$PYTHONPATH:. && uvicorn pipeline.server.app:app --port 8000 --host 0.0.0.0",
+    "backend":    "export PYTHONPATH=$PYTHONPATH:. && uvicorn pipeline.server.app:app --reload --port 8000",
+    "backend:mock": "export PYTHONPATH=$PYTHONPATH:. && cross-env MOCK_LLM=true uvicorn pipeline.server.app:app --reload --port 8000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

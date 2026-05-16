@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GradeFlow — HITL Grading Portal</title>
+  <meta name="description" content="Human-in-the-loop AI grading portal for instructors and TAs. Upload exams, manage rubrics, and review AI-generated grades.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+
+  <!-- Styles — order matters: base → layout → components → pages -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages.css">
+  <style>
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .ti-spin, .ti-loader, .ti-loader-2, .ti-loader-3 { animation: spin 1s linear infinite !important; display: inline-block !important; }
+  </style>
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-dot"></span> GradeFlow
+    </div>
+    <div class="header-divider" aria-hidden="true"></div>
+    <span id="course-label" class="header-course">GradeOps</span>
+
+    <div class="header-right">
+      <div class="role-switch" role="group" aria-label="Switch role">
+        <button class="role-opt active" id="btn-instructor">Instructor</button>
+        <button class="role-opt"        id="btn-ta">TA</button>
+      </div>
+      <div id="user-avatar" class="avatar" style="background:#E1F5EE;color:#0F6E56" aria-label="Current user">RK</div>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- SIDEBAR — populated by sidebar.js -->
+    <nav class="sidebar" id="sidebar" aria-label="Primary navigation"></nav>
+
+    <!-- MAIN — populated by page modules via router.js -->
+    <main class="main" id="main-content" aria-live="polite" aria-busy="false"></main>
+  </div>
+
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true">
+  <i id="toast-icon" class="ti ti-check" aria-hidden="true"></i>
+  <span id="toast-msg"></span>
+</div>
+
+<!-- Entry point — type="module" enables ES module imports -->
+<script type="module" src="js/main.js"></script>
+
+</body>
+</html>
