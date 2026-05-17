@@ -4,13 +4,26 @@ config.py — Application settings loaded from .env / environment variables.
 All pipeline code imports settings from here. Nothing reads os.environ directly.
 """
 
+<<<<<<< HEAD
+=======
+from pathlib import Path
+
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
 class Settings(BaseSettings):
+<<<<<<< HEAD
     model_config = SettingsConfigDict(
         env_file=".env",
+=======
+    _pipeline_env = Path(__file__).resolve().parent / ".env"
+    _root_env = Path(__file__).resolve().parent.parent / ".env"
+
+    model_config = SettingsConfigDict(
+        env_file=[str(_pipeline_env), str(_root_env)],
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -19,6 +32,7 @@ class Settings(BaseSettings):
     google_api_key: str = Field(default="", alias="GOOGLE_API_KEY")
     groq_api_key: str   = Field(default="", alias="GROQ_API_KEY")
 
+<<<<<<< HEAD
     # Vision OCR → Gemini Flash (default) or local Qwen-VL
     ocr_model: str       = Field(default="gemini-2.0-flash",          alias="OCR_MODEL")
     ocr_backend: str     = Field(default="qwen_local",               alias="OCR_BACKEND")
@@ -28,6 +42,12 @@ class Settings(BaseSettings):
     qwen_max_new_tokens: int = Field(default=512,                      alias="QWEN_MAX_NEW_TOKENS")
     # Text grading → Groq (generous free limits, extremely fast)
     grading_model: str   = Field(default="llama-3.3-70b-versatile",   alias="GRADING_MODEL")
+=======
+    # Vision OCR → Gemini Flash (only provider with vision free tier)
+    ocr_model: str       = Field(default="gemini-2.0-flash",          alias="OCR_MODEL")
+    # Text grading → Groq (generous free limits, extremely fast)
+    grading_model: str   = Field(default="llama3-70b-8192",           alias="GRADING_MODEL")
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     grading_provider: str = Field(default="groq",                     alias="GRADING_PROVIDER")
     # Embeddings → Gemini (generous free limits for text-embedding)
     embedding_model: str = Field(default="models/text-embedding-004", alias="EMBEDDING_MODEL")
@@ -43,14 +63,21 @@ class Settings(BaseSettings):
     s3_bucket: str         = Field(default="",         alias="S3_BUCKET")
     gcs_bucket: str        = Field(default="",         alias="GCS_BUCKET")
 
+<<<<<<< HEAD
     # ── Database ──────────────────────────────────────────────
     mongodb_uri: str = Field(default="mongodb://localhost:27017", alias="MONGODB_URI")
 
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     # ── Concurrency & Resilience ─────────────────────────────
     # Max simultaneous LLM calls per agent (prevents rate-limit spikes)
     llm_concurrency: int = Field(default=4, alias="LLM_CONCURRENCY")
     # Max retry attempts on transient API errors (429, 503)
+<<<<<<< HEAD
     llm_max_retries: int = Field(default=5, alias="LLM_MAX_RETRIES")
+=======
+    llm_max_retries: int = Field(default=2, alias="LLM_MAX_RETRIES")
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
     # ── Dev ───────────────────────────────────────────────────
     mock_llm: bool = Field(default=False, alias="MOCK_LLM")

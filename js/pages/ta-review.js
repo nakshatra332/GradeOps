@@ -3,19 +3,46 @@
  *
  * Data source: live FastAPI pipeline (GET /pipeline/{exam_id}).
  * Actions:     POST /review/{exam_id}/decide → resumes LangGraph.
+<<<<<<< HEAD
  *
  * Falls back to the mocked queue from state.js if no active exam is running.
  */
 
 import { getPipelineState, submitDecision } from '../api/pipeline.js';
+=======
+ *              WS   ws://localhost:8000/ws/{exam_id} → live stats push.
+ *
+ * The POST /decide endpoint now returns the full pipeline state, so we
+ * update the UI immediately without a separate re-poll (no race condition).
+ * The WebSocket connection fires whenever the finalize agent completes,
+ * letting us update stats in real-time.
+ */
+
+import { getPipelineState, submitDecision } from '../api/pipeline.js';
+import { watchExam, stopWatching }          from '../api/ws.js';
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 import { store }    from '../state.js';
 import { navigate } from '../router.js';
 import { showToast } from '../components/toast.js';
 import { renderNav } from '../router.js';
 
+<<<<<<< HEAD
 // ── Render ─────────────────────────────────────────────────────────────────────
 
 export async function render(container) {
+=======
+// Track the active WS unsubscribe function so we clean up on navigate
+let _wsUnsub = null;
+
+function _cleanupWs() {
+  if (_wsUnsub) { _wsUnsub(); _wsUnsub = null; }
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+
+export async function render(container) {
+  _cleanupWs();  // Always clean up any previous WS connection
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   const examId = store.activeExamId;
 
   // No active exam — show empty state with helper tip
@@ -66,6 +93,7 @@ export async function render(container) {
 
   // No pending review → either all done or not started
   if (!state.next_review) {
+<<<<<<< HEAD
     if (state.status === 'complete') {
       // Update exam in store so Dashboard and Exams page show it as graded
       const examRecord = store.exams.find(e => e.id === examId);
@@ -75,6 +103,10 @@ export async function render(container) {
         examRecord.reviewed = examRecord.students;
         examRecord.pending = 0;
       }
+=======
+    if (state.status === 'complete' || state.is_complete) {
+      _syncExamRecord(examId, state.stats);
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
       renderComplete(container, state.stats);
     } else {
       renderProcessing(container, examId);
@@ -114,6 +146,10 @@ function renderProcessing(container, examId) {
 }
 
 function renderComplete(container, stats) {
+<<<<<<< HEAD
+=======
+  _cleanupWs();
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   store.activeExamId = null;
   container.innerHTML = `
     <h1 class="page-title">Review queue</h1>
@@ -122,21 +158,44 @@ function renderComplete(container, stats) {
       <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:16px">All reviews complete!</div>
       <div style="text-align:left;background:var(--neutral-50);border:1px solid var(--neutral-200);border-radius:var(--radius-md);padding:16px;margin-bottom:20px;font-size:var(--text-sm)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px">
+<<<<<<< HEAD
           ${statRow('Students',       stats.total_students)}
           ${statRow('Total marks',    stats.total_marks)}
           ${statRow('Class average',  stats.class_average)}
           ${statRow('Pass rate',      `${stats.pass_rate}%`)}
           ${statRow('Highest score',  stats.highest)}
           ${statRow('Lowest score',   stats.lowest)}
+=======
+          ${statRow('Students',        stats.total_students)}
+          ${statRow('Total marks',     stats.total_marks)}
+          ${statRow('Class average',   stats.class_average)}
+          ${statRow('Pass rate',       `${stats.pass_rate}%`)}
+          ${statRow('Highest score',   stats.highest)}
+          ${statRow('Lowest score',    stats.lowest)}
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
           ${statRow('AI–TA agreement', `${stats.ai_ta_agreement_rate}%`)}
           ${statRow('Plagiarism flags', stats.flagged_plagiarism)}
         </div>
       </div>
+<<<<<<< HEAD
       <button class="btn btn-primary" id="go-exams" style="width:100%;justify-content:center">
         <i class="ti ti-list" aria-hidden="true"></i> View all exams
       </button>
     </div>`;
   container.querySelector('#go-exams')?.addEventListener('click', () => navigate('exams'));
+=======
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-primary" id="go-exams">
+          <i class="ti ti-list" aria-hidden="true"></i> View all exams
+        </button>
+        <button class="btn" id="go-reports">
+          <i class="ti ti-chart-bar" aria-hidden="true"></i> View reports
+        </button>
+      </div>
+    </div>`;
+  container.querySelector('#go-exams')?.addEventListener('click', () => navigate('exams'));
+  container.querySelector('#go-reports')?.addEventListener('click', () => navigate('reports'));
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 }
 
 function renderReviewPanel(container, examId, state) {
@@ -151,6 +210,10 @@ function renderReviewPanel(container, examId, state) {
   const maxScore    = qGrades.reduce((s, q) => s + q.max_score, 0);
   const ocrPct      = Math.round((r.ocr_confidence ?? 1) * 100);
   const ocrBadge    = ocrPct >= 85 ? 'badge-green' : ocrPct >= 70 ? 'badge-amber' : 'badge-red';
+<<<<<<< HEAD
+=======
+  const progress    = total > 0 ? Math.round(reviewed / total * 100) : 0;
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   container.innerHTML = `
     <div class="page-header">
@@ -160,9 +223,18 @@ function renderReviewPanel(container, examId, state) {
       </div>
       <div style="display:flex;align-items:center;gap:10px;font-size:var(--text-sm);color:var(--neutral-600)">
         <div class="progress" style="width:80px">
+<<<<<<< HEAD
           <div class="progress-bar" style="width:${Math.round(reviewed / Math.max(total, 1) * 100)}%"></div>
         </div>
         ${reviewed + 1} of ${total}
+=======
+          <div class="progress-bar" style="width:${progress}%"></div>
+        </div>
+        ${reviewed + 1} of ${total}
+        <span id="ws-badge" style="display:none" class="badge badge-green" title="Live updates active">
+          <i class="ti ti-wifi" aria-hidden="true"></i> Live
+        </span>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
       </div>
     </div>
 
@@ -239,20 +311,62 @@ function renderReviewPanel(container, examId, state) {
             </label>
             <textarea rows="3" id="ta-comment" placeholder="Reason for override or note for student…"></textarea>
           </div>
+<<<<<<< HEAD
+=======
+
+          <!-- Live status indicator -->
+          <div id="live-stats-panel" style="display:none;margin-top:12px;padding:10px 12px;background:var(--brand-tint);border-radius:var(--radius-md);font-size:var(--text-xs);color:var(--brand-dark)">
+            <i class="ti ti-chart-bar" aria-hidden="true"></i>
+            <span id="live-stats-text">Live stats will appear here after finalization.</span>
+          </div>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         </div>
       </div>
     </div>`;
 
   bindDecisionEvents(container, examId, totalScore, maxScore);
+<<<<<<< HEAD
+=======
+  _startWsWatch(container, examId);
+}
+
+
+// ── WebSocket live updates ─────────────────────────────────────────────────────
+
+function _startWsWatch(container, examId) {
+  _cleanupWs();
+
+  _wsUnsub = watchExam(examId, (stats) => {
+    // Show the live badge in the header
+    const badge = container.querySelector('#ws-badge');
+    if (badge) badge.style.display = 'inline-flex';
+
+    // Show live stats panel in decision card
+    const panel = container.querySelector('#live-stats-panel');
+    const text  = container.querySelector('#live-stats-text');
+    if (panel && text) {
+      panel.style.display = 'block';
+      text.textContent = `Avg: ${stats.class_average} · Pass: ${stats.pass_rate}% · Plagiarism flags: ${stats.flagged_plagiarism}`;
+    }
+
+    showToast(`Live update: avg ${stats.class_average} / ${stats.total_marks}`);
+  });
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 }
 
 
 // ── Event binding ─────────────────────────────────────────────────────────────
 
 function bindDecisionEvents(container, examId, aiScore, maxScore) {
+<<<<<<< HEAD
   const getScore   = () => { 
     const v = container.querySelector('#override-score')?.value; 
     return v ? parseFloat(v) : aiScore; 
+=======
+  const getScore   = () => {
+    const v = container.querySelector('#override-score')?.value;
+    return v ? parseFloat(v) : aiScore;
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   };
   const getComment = () => container.querySelector('#ta-comment')?.value ?? '';
 
@@ -261,11 +375,16 @@ function bindDecisionEvents(container, examId, aiScore, maxScore) {
     btns.forEach(b => b.disabled = true);
 
     try {
+<<<<<<< HEAD
+=======
+      // submitDecision now returns the full pipeline state immediately
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
       const result = await submitDecision(examId, action, score, comment);
       showToast(action === 'approve' ? 'Approved ✓' : action === 'override' ? 'Override saved ✓' : 'Escalated');
       await renderNav();
 
       if (result.is_complete) {
+<<<<<<< HEAD
         const finalState = await getPipelineState(examId);
         
         // Update exam in store so Dashboard and Exams page show it as graded
@@ -279,6 +398,18 @@ function bindDecisionEvents(container, examId, aiScore, maxScore) {
 
         renderComplete(container, finalState.stats ?? result.stats ?? {});
       } else {
+=======
+        _syncExamRecord(examId, result.stats ?? {});
+        _cleanupWs();
+        renderComplete(container, result.stats ?? {});
+      } else if (result.next_review) {
+        // Next student is ready — re-render the review panel directly
+        // with the data we already have (no extra fetch needed)
+        renderReviewPanel(container, examId, result);
+        _startWsWatch(container, examId);
+      } else {
+        // Still processing — re-poll
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         render(container);
       }
     } catch (err) {
@@ -303,6 +434,20 @@ function bindDecisionEvents(container, examId, aiScore, maxScore) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+<<<<<<< HEAD
+=======
+/** Sync exam record in the in-memory store so Dashboard / Exams pages reflect completion. */
+function _syncExamRecord(examId, stats) {
+  const examRecord = store.exams.find(e => String(e.id) === String(examId));
+  if (examRecord) {
+    examRecord.status   = 'graded';
+    examRecord.students = stats?.total_students ?? examRecord.students;
+    examRecord.reviewed = examRecord.students;
+    examRecord.pending  = 0;
+  }
+}
+
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')

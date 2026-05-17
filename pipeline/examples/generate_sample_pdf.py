@@ -47,6 +47,7 @@ STUDENT_ANSWERS = [
 ]
 
 
+<<<<<<< HEAD
 def generate(output_dir: str = "examples/submissions"):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
@@ -55,6 +56,13 @@ def generate(output_dir: str = "examples/submissions"):
         c = canvas.Canvas(output_path, pagesize=A4)
         w, h = A4
 
+=======
+def generate(output_path: str = "examples/sample_exam.pdf"):
+    c = canvas.Canvas(output_path, pagesize=A4)
+    w, h = A4
+
+    for student in STUDENT_ANSWERS:
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         for page_num, (q_key, q_label) in enumerate([("q1", "Question 1"), ("q2", "Question 2")]):
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, h - 50, f"CS 301 Midterm — {student['id']} — {q_label}")
@@ -70,6 +78,7 @@ def generate(output_dir: str = "examples/submissions"):
 
             c.showPage()
 
+<<<<<<< HEAD
         c.save()
         print(f"Sample PDF written to: {output_path}")
 
@@ -115,8 +124,15 @@ def generate_marking_scheme(output_path: str = "examples/sample_marking_scheme.p
     c.drawText(text)
     c.save()
     print(f"Sample marking scheme PDF written to: {output_path}")
+=======
+    c.save()
+    print(f"Sample PDF written to: {output_path}")
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 if __name__ == "__main__":
     generate()
+<<<<<<< HEAD
     generate_marking_scheme()
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0

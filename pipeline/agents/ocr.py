@@ -1,8 +1,13 @@
 """
 agents/ocr.py — Agent 2: OCR / Vision transcription.
 
+<<<<<<< HEAD
 Supports OCR via Gemini Flash (API) or local Qwen-VL, returning a
 structured transcript with confidence score.
+=======
+Sends each student's page images to Gemini Flash (a Vision Language Model)
+and gets back a structured transcript with confidence score.
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 Rate-limit strategy (same as grading.py):
   - asyncio.Semaphore throttles concurrent Vision API calls to
@@ -15,7 +20,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+<<<<<<< HEAD
 import threading
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 from pathlib import Path
 
 from tenacity import (
@@ -25,6 +33,7 @@ from tenacity import (
     wait_exponential,
 )
 
+<<<<<<< HEAD
 from config import settings
 from schemas.outputs import OCROutput
 from state import ExamGradingState, StudentRecord
@@ -32,6 +41,11 @@ from state import ExamGradingState, StudentRecord
 _QWEN_MODEL = None
 _QWEN_TOKENIZER = None
 _QWEN_LOCK = threading.Lock()
+=======
+from pipeline.config import settings
+from pipeline.schemas.outputs import OCROutput
+from pipeline.state import ExamGradingState, StudentRecord
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 # ── Mock responses (used when MOCK_LLM=true) ─────────────────────────────────
 
@@ -63,6 +77,7 @@ def _build_ocr_prompt() -> str:
     )
 
 
+<<<<<<< HEAD
 def _extract_json_text(raw: str) -> str:
     cleaned = raw.strip()
     if cleaned.startswith("```"):
@@ -199,6 +214,8 @@ def _ocr_student_qwen(student: StudentRecord) -> OCROutput:
         )
 
 
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 # ── Throttled OCR task ────────────────────────────────────────────────────────
 
 async def _ocr_student_throttled(
@@ -226,28 +243,56 @@ async def _ocr_student_throttled(
     @retry(
         retry=retry_if_exception_type((ChatGoogleGenerativeAIError, Exception)),
         stop=stop_after_attempt(settings.llm_max_retries),
+<<<<<<< HEAD
         wait=wait_exponential(multiplier=2, min=10, max=65),
+=======
+        wait=wait_exponential(multiplier=1, min=10, max=60),
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         reraise=True,
     )
     async def _call() -> OCROutput:
         async with semaphore:
+<<<<<<< HEAD
             await asyncio.sleep(6.5)  # Strict pace: <10 requests per minute (bypasses Google's hidden 10 RPM throttle)
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
             response = await model.ainvoke([HumanMessage(content=content)])
 
         # Parse JSON — strip markdown fences if present
         raw = response.content.strip()
+<<<<<<< HEAD
         return _parse_ocr_response(raw)
+=======
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].lstrip("json").strip()
+
+        try:
+            data = json.loads(raw)
+            return OCROutput(**data)
+        except (json.JSONDecodeError, TypeError) as exc:
+            # If the LLM returned garbage, fall back gracefully
+            return OCROutput(
+                transcript=raw[:2000],  # keep whatever text was returned
+                confidence=0.0,
+                illegible_regions=[f"JSON parse error: {exc}"],
+            )
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
     try:
         return await _call()
     except Exception as exc:
         return OCROutput(
+<<<<<<< HEAD
             transcript=f"[API Error] Could not process image due to rate limits: {exc}",
+=======
+            transcript=f"[API Error] Could not process image: {exc}",
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
             confidence=0.0,
             illegible_regions=["API Quota Exhausted"],
         )
 
 
+<<<<<<< HEAD
 async def _ocr_student_qwen_throttled(
     student: StudentRecord,
     semaphore: asyncio.Semaphore,
@@ -256,6 +301,8 @@ async def _ocr_student_qwen_throttled(
         return await asyncio.to_thread(_ocr_student_qwen, student)
 
 
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 async def _run_all_ocr(
     students: list[StudentRecord],
     model,
@@ -268,6 +315,7 @@ async def _run_all_ocr(
     return await asyncio.gather(*tasks)
 
 
+<<<<<<< HEAD
 async def _run_all_ocr_qwen(
     students: list[StudentRecord],
 ) -> list[OCROutput]:
@@ -277,6 +325,8 @@ async def _run_all_ocr_qwen(
     return await asyncio.gather(*tasks)
 
 
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 # ── Agent node ────────────────────────────────────────────────────────────────
 
 def ocr_agent(state: ExamGradingState) -> dict:
@@ -293,7 +343,16 @@ def ocr_agent(state: ExamGradingState) -> dict:
     if settings.mock_llm:
         results = [_mock_ocr(s["student_id"]) for s in students]
     else:
+<<<<<<< HEAD
         backend = (settings.ocr_backend or "gemini").strip().lower()
+=======
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        model = ChatGoogleGenerativeAI(
+            model=settings.ocr_model,
+            google_api_key=settings.google_api_key,
+            temperature=0,
+        )
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         try:
             loop = asyncio.get_event_loop()
             if loop.is_closed():
@@ -302,6 +361,7 @@ def ocr_agent(state: ExamGradingState) -> dict:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
+<<<<<<< HEAD
         if backend == "qwen_local":
             results = loop.run_until_complete(_run_all_ocr_qwen(students))
         else:
@@ -312,6 +372,9 @@ def ocr_agent(state: ExamGradingState) -> dict:
                 temperature=0,
             )
             results = loop.run_until_complete(_run_all_ocr(students, model))
+=======
+        results = loop.run_until_complete(_run_all_ocr(students, model))
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
     updated = []
     for student, ocr in zip(students, results):

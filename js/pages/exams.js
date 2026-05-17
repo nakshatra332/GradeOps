@@ -1,26 +1,63 @@
 /**
  * pages/exams.js — Manage all uploaded exam batches.
+<<<<<<< HEAD
+=======
+ *
+ * The download button fetches GET /pipeline/{exam_id}/export/csv from the
+ * FastAPI backend and triggers a browser download. If the gradebook is not
+ * ready yet (exam still processing) a toast is shown instead.
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
  */
 
 import { getExams, deleteExam } from '../api/exams.js';
 import { navigate } from '../router.js';
 import { showToast } from '../components/toast.js';
+<<<<<<< HEAD
+=======
+import { store } from '../state.js';
+import { getCourses } from '../api/courses.js';
+
+// Use the current origin as the API base if we're not on the default dev port (3000)
+const API_BASE = window.location.port === '3000' ? 'http://localhost:8000' : '';
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 const STATUS_BADGE = { graded: 'badge-green', processing: 'badge-amber', pending: 'badge-gray' };
 const STATUS_LABEL = { graded: 'Graded', processing: 'In progress', pending: 'Pending' };
 
 export async function render(container) {
+<<<<<<< HEAD
   const exams = await getExams();
+=======
+  const [exams, courses] = await Promise.all([getExams(), getCourses()]);
+  
+  const activeCourse = courses.find(c => c.id === store.selectedCourseId);
+  const filteredExams = store.selectedCourseId 
+    ? exams.filter(e => e.courseId === store.selectedCourseId || e.course_id === store.selectedCourseId)
+    : exams;
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Exams</h1>
+<<<<<<< HEAD
         <p class="page-sub">${exams.length} batch${exams.length !== 1 ? 'es' : ''} uploaded</p>
       </div>
       <button class="btn btn-primary" id="btn-upload-new">
         <i class="ti ti-upload" aria-hidden="true"></i> Upload exam
       </button>
+=======
+        <p class="page-sub">
+          ${activeCourse ? `Viewing exams for <strong>${activeCourse.code}</strong>` : `${exams.length} batch${exams.length !== 1 ? 'es' : ''} uploaded`}
+        </p>
+      </div>
+      <div style="display:flex; gap:8px">
+        ${store.selectedCourseId ? `<button class="btn" id="btn-show-all">Show all</button>` : ''}
+        <button class="btn btn-primary" id="btn-upload-new">
+          <i class="ti ti-upload" aria-hidden="true"></i> Upload exam
+        </button>
+      </div>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     </div>
 
     <div class="card" style="padding:0;overflow:hidden">
@@ -37,23 +74,87 @@ export async function render(container) {
           </tr>
         </thead>
         <tbody>
+<<<<<<< HEAD
           ${exams.length
             ? exams.map(e => examRow(e)).join('')
             : `<tr><td colspan="7"><div class="empty"><i class="ti ti-files" aria-hidden="true"></i><p>No exams yet</p><small>Upload your first exam to get started.</small></div></td></tr>`}
+=======
+          ${filteredExams.length
+            ? filteredExams.map(e => examRow(e)).join('')
+            : `<tr><td colspan="7"><div class="empty"><i class="ti ti-files" aria-hidden="true"></i><p>No exams for this course</p><small>Upload your first exam to get started.</small></div></td></tr>`}
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         </tbody>
       </table>
     </div>`;
 
   container.querySelector('#btn-upload-new').addEventListener('click', () => navigate('upload'));
+<<<<<<< HEAD
 
   container.querySelectorAll('[data-delete-exam]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (!confirm('Remove this exam? This cannot be undone.')) return;
       await deleteExam(Number(btn.dataset.deleteExam));
+=======
+  container.querySelector('#btn-show-all')?.addEventListener('click', () => {
+    store.selectedCourseId = null;
+    render(container);
+  });
+
+  // ── Delete buttons ──────────────────────────────────────────────────────────
+  container.querySelectorAll('[data-delete-exam]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Remove this exam? This cannot be undone.')) return;
+      await deleteExam(btn.dataset.deleteExam);
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
       showToast('Exam removed');
       render(container);
     });
   });
+<<<<<<< HEAD
+=======
+
+  // ── Download / export buttons ───────────────────────────────────────────────
+  container.querySelectorAll('[data-download-exam]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const examId = btn.dataset.downloadExam;
+      const examStatus = btn.dataset.examStatus;
+
+      if (examStatus !== 'graded') {
+        showToast('Gradebook not ready — complete all TA reviews first', 'error');
+        return;
+      }
+
+      try {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ti ti-loader-2 ti-spin" aria-hidden="true"></i>';
+
+        const res = await fetch(`${API_BASE}/pipeline/${examId}/export/csv`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail ?? 'Export failed');
+        }
+
+        // Trigger browser download
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `gradebook_${examId}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('CSV downloaded ✓');
+      } catch (err) {
+        showToast(err.message ?? 'Download failed', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-download" aria-hidden="true"></i>';
+      }
+    });
+  });
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 }
 
 function examRow(e) {
@@ -62,6 +163,12 @@ function examRow(e) {
     ? `<span class="badge badge-blue" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.rubric}</span>`
     : `<span style="font-size:var(--text-xs);color:var(--neutral-400)">—</span>`;
 
+<<<<<<< HEAD
+=======
+  const downloadTitle = e.status === 'graded' ? 'Download grades CSV' : 'Complete reviews first';
+  const downloadStyle = e.status !== 'graded' ? 'opacity:0.4;cursor:not-allowed' : '';
+
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   return `
     <tr>
       <td>
@@ -78,8 +185,21 @@ function examRow(e) {
       <td style="color:var(--neutral-400);font-size:var(--text-xs)">${e.uploaded}</td>
       <td>
         <div style="display:flex;gap:6px">
+<<<<<<< HEAD
           <button class="btn btn-sm btn-icon" title="Download grades"><i class="ti ti-download" aria-hidden="true"></i></button>
           <button class="btn btn-sm btn-icon btn-danger" data-delete-exam="${e.id}" title="Remove exam"><i class="ti ti-trash" aria-hidden="true"></i></button>
+=======
+          <button class="btn btn-sm btn-icon"
+                  data-download-exam="${e.id}"
+                  data-exam-status="${e.status}"
+                  title="${downloadTitle}"
+                  style="${downloadStyle}">
+            <i class="ti ti-download" aria-hidden="true"></i>
+          </button>
+          <button class="btn btn-sm btn-icon btn-danger" data-delete-exam="${e.id}" title="Remove exam">
+            <i class="ti ti-trash" aria-hidden="true"></i>
+          </button>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         </div>
       </td>
     </tr>`;
