@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     s3_bucket: str         = Field(default="",         alias="S3_BUCKET")
     gcs_bucket: str        = Field(default="",         alias="GCS_BUCKET")
 
+    # ── Database ──────────────────────────────────────────────
+    mongodb_uri: str = Field(default="mongodb://localhost:27017", alias="MONGODB_URI")
+
     # ── Concurrency & Resilience ─────────────────────────────
     # Max simultaneous LLM calls per agent (prevents rate-limit spikes)
     llm_concurrency: int = Field(default=4, alias="LLM_CONCURRENCY")

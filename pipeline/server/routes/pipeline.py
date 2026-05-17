@@ -180,3 +180,68 @@ async def get_pipeline_state(exam_id: str):
         "next_review": next_review,
         "is_complete": is_complete,
     }
+
+
+@router.get("/")
+async def list_exams():
+    """
+    List all exams stored in MongoDB.
+
+    Queries the checkpointing_db for distinct thread_ids (each = one exam),
+    fetches the latest state for each, and returns a summary array that
+    the frontend dashboard can render immediately.
+    """
+    try:
+        from database.connection import get_mongo_client
+
+        client = get_mongo_client()
+        if client is None:
+            return []
+
+        db = client["checkpointing_db"]
+        checkpoints = db["checkpoints"]
+        thread_ids = checkpoints.distinct("thread_id")
+        exams = []
+
+        for tid in thread_ids:
+            try:
+                snap = graph.get_state({"configurable": {"thread_id": tid}})
+                if not snap or not snap.values:
+                    continue
+
+                state = snap.values
+                students = state.get("students", [])
+                reviewed = sum(1 for s in students if s.get("ta_decision"))
+
+                # Determine status
+                status = _pipeline_status.get(tid, "unknown")
+                if state.get("error"):
+                    status = "error"
+                elif any(t.interrupts for t in snap.tasks):
+                    status = "awaiting_review"
+                elif not snap.tasks and status not in ("processing",):
+                    status = "graded"
+
+                rubric = state.get("rubric", {})
+                stats = state.get("stats", {})
+
+                exams.append({
+                    "id":       tid,
+                    "name":     rubric.get("exam", f"Exam {tid[-8:]}"),
+                    "course":   rubric.get("course", "Unknown"),
+                    "uploaded": stats.get("finalized_at", "Recently"),
+                    "status":   status,
+                    "students": len(students),
+                    "reviewed": reviewed,
+                    "pending":  len(students) - reviewed,
+                    "rubric":   "rubric.json",
+                })
+            except Exception as inner_exc:
+                print(f"[list_exams] Error reading state for {tid}: {inner_exc}")
+                continue
+
+        # Show newest first
+        return list(reversed(exams))
+    except Exception as exc:
+        print(f"[list_exams] Error: {exc}")
+        return []

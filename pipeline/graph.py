@@ -7,17 +7,17 @@ To add a new node:
   Nothing else needs to change.
 
 Checkpointer:
-  - MemorySaver: in-process, lost on restart (development)
-  - SqliteSaver:  persists to disk (single-server production)
-  - AsyncPostgresSaver: distributed production
+  - MongoDBSaver: persists to MongoDB Atlas (default, production-ready)
+  - MemorySaver:  in-process, lost on restart (fallback if MongoDB unavailable)
 
-  Change the single `checkpointer=` line in `build_graph()` to upgrade.
+  The database.connection module handles the connection automatically.
 """
 
 from __future__ import annotations
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
+
+from database.connection import get_checkpointer
 
 from state import ExamGradingState
 from agents.rubric_extractor import extract_rubric_agent
@@ -33,14 +33,15 @@ def build_graph(checkpointer=None):
     Assemble and compile the ExamGradingState graph.
 
     Args:
-        checkpointer: LangGraph checkpointer instance. Defaults to MemorySaver.
+        checkpointer: LangGraph checkpointer instance.
+                      Defaults to MongoDBSaver (falls back to MemorySaver).
                       Must be provided for interrupt() to work.
 
     Returns:
         A compiled LangGraph CompiledGraph.
     """
     if checkpointer is None:
-        checkpointer = MemorySaver()
+        checkpointer = get_checkpointer()
 
     builder = StateGraph(ExamGradingState)
 

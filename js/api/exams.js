@@ -1,43 +1,40 @@
 /**
  * api/exams.js — Exam CRUD operations.
  *
- * All functions are async and return plain objects/arrays.
- * Replace the bodies with real fetch() calls when connecting a backend:
- *   const res = await fetch('/api/exams', { method: 'GET', headers: {...} });
- *   return res.json();
+ * Connected to the FastAPI backend. getExams() fetches the real exam list
+ * from MongoDB via GET /pipeline/. Data persists across page refreshes.
  */
 
-import { store, delay } from '../state.js';
 import { getPipelineState } from './pipeline.js';
 
-export async function getExams() {
-  await delay();
-  
-  // Sync processing exams with the backend to show partial progress
-  for (const exam of store.exams) {
-    if (exam.status === 'processing') {
-      try {
-        const state = await getPipelineState(exam.id);
-        if (state.students && state.students.length > 0) {
-          exam.students = state.students.length;
-          exam.reviewed = state.students.filter(s => !!s.ta_decision).length;
-          exam.pending  = exam.students - exam.reviewed;
-          if (state.status === 'complete') {
-            exam.status = 'graded';
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to sync exam status:', err);
-      }
-    }
-  }
+const API_BASE = 'http://localhost:8000';
 
-  return [...store.exams];
+/**
+ * Fetch all exams from the backend (which reads from MongoDB).
+ * Falls back to an empty array if the server is unreachable.
+ */
+export async function getExams() {
+  try {
+    const res = await fetch(`${API_BASE}/pipeline/`);
+    if (!res.ok) {
+      console.error('Failed to fetch exams from backend');
+      return [];
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('Backend unreachable, returning empty exam list:', err.message);
+    return [];
+  }
 }
 
+/**
+ * Create an exam entry.
+ * The real creation happens via startPipeline() in api/pipeline.js.
+ * This just returns a placeholder object so the UI can show it immediately
+ * while the pipeline starts processing in the background.
+ */
 export async function createExam({ id, name, course, rubricName, students = 0 }) {
-  await delay();
-  const exam = {
+  return {
     id:       id || Date.now(),
     name,
     course,
@@ -45,15 +42,15 @@ export async function createExam({ id, name, course, rubricName, students = 0 })
     uploaded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     status:   'processing',
     rubric:   rubricName || null,
-    students: students,
+    students,
     reviewed: 0,
     pending:  students,
   };
-  store.exams.unshift(exam);
-  return exam;
 }
 
+/**
+ * Delete an exam. Not yet implemented on the backend.
+ */
 export async function deleteExam(id) {
-  await delay();
-  store.exams = store.exams.filter(e => e.id !== id);
+  console.warn('Delete not implemented on backend yet');
 }

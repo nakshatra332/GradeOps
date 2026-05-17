@@ -148,9 +148,9 @@ def run_pipeline(rubric_path: str, pdf_paths: list[str], exam_id: str | None, au
 
     # Print final stats
     stats = last_state.get("stats", {})
-    print("\n" + "═" * 60)
+    print("\n" + "=" * 60)
     print("  FINAL GRADE REPORT")
-    print("═" * 60)
+    print("=" * 60)
     print(json.dumps(stats, indent=2))
     exam_out = last_state.get("exam_id") or thread_id
     print(f"\n  Gradebook: scratch/{exam_out}/gradebook.json")
