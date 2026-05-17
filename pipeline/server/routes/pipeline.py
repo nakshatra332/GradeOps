@@ -1,21 +1,37 @@
 """
 server/routes/pipeline.py — Pipeline management endpoints.
 
+<<<<<<< HEAD
+POST /pipeline/start   → upload PDF + rubric, save to disk, start grading
+                         in background; returns exam_id immediately.
+GET  /pipeline/{id}    → poll current state (students, stats, next interrupt)
+=======
 POST /pipeline/start              → upload PDF + rubric, start grading in background
 GET  /pipeline/{id}               → poll current state (students, stats, next interrupt)
 GET  /pipeline/{id}/export/csv    → download gradebook as CSV
 GET  /pipeline/{id}/export/json   → download raw gradebook JSON
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 """
 
 from __future__ import annotations
 import asyncio
+<<<<<<< HEAD
+=======
 import csv
 import io
 import json
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+<<<<<<< HEAD
+
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+
+from config import settings
+from graph import graph
+=======
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
@@ -24,6 +40,7 @@ from fastapi.responses import StreamingResponse, Response
 from pipeline.config import settings
 from pipeline.graph import graph
 from pipeline.server.routes.metadata import register_exam, ExamMetadata, _load_json, COURSES_FILE
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -80,6 +97,20 @@ def _resume_graph_sync(resume_cmd, exam_id: str):
 
 @router.post("/start")
 async def start_pipeline(
+<<<<<<< HEAD
+    pdfs:    list[UploadFile] = File(..., description="List of individual student exam PDFs"),
+    rubric:  UploadFile = File(...,       description="Grading rubric JSON"),
+    exam_id: str | None = Form(default=None,  description="Optional exam ID"),
+    mock:    bool       = Form(default=False, description="Use mock LLM responses"),
+):
+    """
+    Upload a PDF and rubric JSON, then kick off the grading pipeline.
+
+    The pipeline runs in a background thread. This endpoint returns
+    immediately with the exam_id so the frontend can start polling.
+
+    Poll GET /pipeline/{exam_id} for status and the next TA review.
+=======
     pdf:        UploadFile = File(...,           description="Scanned exam PDF"),
     rubric:     UploadFile | None = File(None,   description="Grading rubric JSON"),
     rubric_id:  str | None = Form(default=None,  description="ID of a saved rubric"),
@@ -92,6 +123,7 @@ async def start_pipeline(
 
     If rubric_id is provided, it uses a saved rubric from /metadata/rubrics.
     Otherwise, a new rubric file must be uploaded.
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     """
     if mock:
         os.environ["MOCK_LLM"] = "true"
@@ -102,6 +134,35 @@ async def start_pipeline(
 
     eid = exam_id or f"exam_{uuid.uuid4().hex[:8]}"
 
+<<<<<<< HEAD
+    # ── Save uploaded files to a permanent scratch directory ──────────────────
+    # (DO NOT use tempfile.TemporaryDirectory — it deletes the file before
+    #  the pipeline agent reads it off disk)
+    upload_dir = Path(settings.local_storage_path) / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    pdf_paths = []
+    for i, p in enumerate(pdfs):
+        path = upload_dir / f"{eid}_student_{i+1:03d}.pdf"
+        path.write_bytes(await p.read())
+        pdf_paths.append(str(path))
+
+    rubric_raw = None
+    rubric_pdf_path = None
+
+    if rubric.filename and rubric.filename.lower().endswith(".pdf"):
+        rubric_file_path = upload_dir / f"{eid}_rubric.pdf"
+        rubric_file_path.write_bytes(await rubric.read())
+        rubric_pdf_path = str(rubric_file_path)
+    else:
+        rubric_raw = (await rubric.read()).decode()
+
+    initial_state = {
+        "_pdf_paths":         pdf_paths,
+        "_rubric_raw":        rubric_raw,
+        "_rubric_pdf_path":   rubric_pdf_path,
+        "exam_id":            eid,
+=======
     # ── Load Rubric ───────────────────────────────────────────────────────────
     if rubric_id:
         rubric_path = Path(settings.local_storage_path) / "metadata" / "rubrics" / f"{rubric_id}.json"
@@ -125,6 +186,7 @@ async def start_pipeline(
         "_rubric_raw":        rubric_raw,
         "exam_id":            eid,
         "course_id":          course_id,
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         "students":           [],
         "current_review_idx": 0,
         "stats":              {},
@@ -132,6 +194,10 @@ async def start_pipeline(
         "rubric":             {},
     }
 
+<<<<<<< HEAD
+    # ── Run pipeline in thread pool (non-blocking) ────────────────────────────
+    _pipeline_status[eid] = "processing"
+=======
     # ── Register exam metadata ──────────────────────────────────────────────
     course_name = "Unknown Course"
     if course_id:
@@ -157,6 +223,7 @@ async def start_pipeline(
     ))
 
     # ── Run pipeline in thread pool (non-blocking) ────────────────────────────
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     loop = asyncio.get_event_loop()
     loop.run_in_executor(_executor, _run_graph_sync, initial_state, eid)
 
@@ -208,6 +275,71 @@ async def get_pipeline_state(exam_id: str):
     }
 
 
+<<<<<<< HEAD
+@router.get("/")
+async def list_exams():
+    """
+    List all exams stored in MongoDB.
+
+    Queries the checkpointing_db for distinct thread_ids (each = one exam),
+    fetches the latest state for each, and returns a summary array that
+    the frontend dashboard can render immediately.
+    """
+    try:
+        from database.connection import get_mongo_client
+
+        client = get_mongo_client()
+        if client is None:
+            return []
+
+        db = client["checkpointing_db"]
+        checkpoints = db["checkpoints"]
+        thread_ids = checkpoints.distinct("thread_id")
+        exams = []
+
+        for tid in thread_ids:
+            try:
+                snap = graph.get_state({"configurable": {"thread_id": tid}})
+                if not snap or not snap.values:
+                    continue
+
+                state = snap.values
+                students = state.get("students", [])
+                reviewed = sum(1 for s in students if s.get("ta_decision"))
+
+                # Determine status
+                status = _pipeline_status.get(tid, "unknown")
+                if state.get("error"):
+                    status = "error"
+                elif any(t.interrupts for t in snap.tasks):
+                    status = "awaiting_review"
+                elif not snap.tasks and status not in ("processing",):
+                    status = "graded"
+
+                rubric = state.get("rubric", {})
+                stats = state.get("stats", {})
+
+                exams.append({
+                    "id":       tid,
+                    "name":     rubric.get("exam", f"Exam {tid[-8:]}"),
+                    "course":   rubric.get("course", "Unknown"),
+                    "uploaded": stats.get("finalized_at", "Recently"),
+                    "status":   status,
+                    "students": len(students),
+                    "reviewed": reviewed,
+                    "pending":  len(students) - reviewed,
+                    "rubric":   "rubric.json",
+                })
+            except Exception as inner_exc:
+                print(f"[list_exams] Error reading state for {tid}: {inner_exc}")
+                continue
+
+        # Show newest first
+        return list(reversed(exams))
+    except Exception as exc:
+        print(f"[list_exams] Error: {exc}")
+        return []
+=======
 @router.get("/{exam_id}/export/csv")
 async def export_gradebook_csv(exam_id: str):
     """
@@ -309,3 +441,4 @@ async def export_gradebook_json(exam_id: str):
         media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0

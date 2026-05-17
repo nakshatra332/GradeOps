@@ -18,7 +18,10 @@ const PAGE_REGISTRY = {
   'upload':       () => import('./pages/upload.js'),
   'exams':        () => import('./pages/exams.js'),
   'rubrics':      () => import('./pages/rubrics.js'),
+<<<<<<< HEAD
+=======
   'courses':      () => import('./pages/courses.js'),
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   'users':        () => import('./pages/users.js'),
   'reports':      () => import('./pages/reports.js'),
   'ta-dashboard': () => import('./pages/ta-dashboard.js'),

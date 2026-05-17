@@ -26,7 +26,11 @@ export async function render(container) {
               <tr>
                 <td style="font-weight:500">${r.student}</td>
                 <td style="color:var(--neutral-600)">${r.q.substring(0, 44)}…</td>
+<<<<<<< HEAD
+                <td style="font-weight:500">${r.ai_score} / ${r.max}</td>
+=======
                 <td style="font-weight:500">${r.score} / ${r.max}</td>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
                 <td>
                   <span class="badge ${r.status === 'approved' ? 'badge-green' : 'badge-amber'}">
                     ${r.status === 'approved' ? 'Approved' : 'Overridden'}

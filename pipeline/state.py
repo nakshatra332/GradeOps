@@ -15,8 +15,13 @@ from __future__ import annotations
 from typing import Any
 from typing_extensions import TypedDict
 
+<<<<<<< HEAD
+from schemas.rubric import RubricSchema
+from schemas.outputs import GradeOutput, FinalGrade
+=======
 from pipeline.schemas.rubric import RubricSchema
 from pipeline.schemas.outputs import GradeOutput, FinalGrade
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 class StudentRecord(TypedDict):
@@ -47,11 +52,19 @@ class StudentRecord(TypedDict):
 
 class ExamGradingState(TypedDict):
     """Top-level LangGraph state for one exam batch."""
+<<<<<<< HEAD
+    _pdf_paths: list[str]          # Paths to individual student PDFs
+    _rubric_raw: str | dict | None # Raw rubric JSON string or dict
+    _rubric_pdf_path: str | None   # Path to uploaded rubric PDF
+
+    exam_id: str
+=======
     _pdf_path: str                 # Path to uploaded PDF
     _rubric_raw: str | dict        # Raw rubric JSON string or dict
 
     exam_id: str
     course_id: str | None          # ID of the course this exam belongs to
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     rubric: dict                   # serialised RubricSchema (dicts survive checkpointing)
 
     students: list[StudentRecord]

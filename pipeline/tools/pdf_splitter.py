@@ -10,6 +10,33 @@ from pathlib import Path
 import fitz  # PyMuPDF
 
 
+<<<<<<< HEAD
+def convert_pdf_to_images(
+    pdf_path: str,
+    dpi: int = 150,
+) -> list[bytes]:
+    """
+    Render all pages of a single student's PDF as PNG images.
+
+    Args:
+        pdf_path: Path to the PDF file.
+        dpi:      Render resolution. 150 dpi is enough for VLM transcription.
+
+    Returns:
+        A list of PNG bytes, one per page.
+    """
+    doc = fitz.open(pdf_path)
+    zoom = dpi / 72  # fitz default is 72 dpi
+    mat = fitz.Matrix(zoom, zoom)
+
+    pages_png: list[bytes] = []
+    for page in doc:
+        pixmap = page.get_pixmap(matrix=mat)
+        pages_png.append(pixmap.tobytes("png"))
+
+    doc.close()
+    return pages_png
+=======
 def split_pdf_to_images(
     pdf_path: str,
     pages_per_student: int | None = None,
@@ -57,3 +84,4 @@ def count_students_in_pdf(pdf_path: str, pages_per_student: int) -> int:
     if n % pages_per_student != 0:
         raise ValueError(f"PDF page count {n} not divisible by {pages_per_student}")
     return n // pages_per_student
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0

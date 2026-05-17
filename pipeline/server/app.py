@@ -16,6 +16,12 @@ from __future__ import annotations
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+<<<<<<< HEAD
+from config import settings
+from server.routes.pipeline import router as pipeline_router
+from server.routes.review   import router as review_router
+from server import ws as ws_manager
+=======
 from pipeline.config import settings
 from pipeline.server.routes.pipeline import router as pipeline_router
 from pipeline.server.routes.review   import router as review_router
@@ -23,6 +29,7 @@ from pipeline.server.routes.metadata import router as metadata_router
 from fastapi.staticfiles import StaticFiles
 import os
 from pipeline.server import ws as ws_manager
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 def create_app() -> FastAPI:
@@ -48,7 +55,10 @@ def create_app() -> FastAPI:
     # ── REST routes ───────────────────────────────────────────────────────────
     app.include_router(pipeline_router)
     app.include_router(review_router)
+<<<<<<< HEAD
+=======
     app.include_router(metadata_router)
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
     # ── WebSocket ─────────────────────────────────────────────────────────────
     @app.websocket("/ws/{exam_id}")
@@ -75,12 +85,15 @@ def create_app() -> FastAPI:
             "ocr_model": settings.ocr_model,
         }
 
+<<<<<<< HEAD
+=======
     # ── Static Files ──────────────────────────────────────────────────────────
     # Serve static files from the project root.
     # We mount this LAST so it doesn't shadow the API routes.
     root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     app.mount("/", StaticFiles(directory=root_dir, html=True), name="static")
 
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     return app
 
 

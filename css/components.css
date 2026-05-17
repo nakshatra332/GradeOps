@@ -297,6 +297,8 @@ input:focus, select:focus, textarea:focus {
   animation: shimmer 1.4s ease infinite;
   border-radius: var(--radius-sm);
 }
+<<<<<<< HEAD
+=======
 
 /* ── Animations ──────────────────────────────────────────── */
 @keyframes spin {
@@ -308,3 +310,4 @@ input:focus, select:focus, textarea:focus {
   animation: spin 1s linear infinite !important;
   display: inline-block !important;
 }
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0

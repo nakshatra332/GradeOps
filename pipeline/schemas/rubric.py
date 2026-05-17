@@ -61,7 +61,11 @@ class QuestionSchema(BaseModel):
 class RubricSchema(BaseModel):
     exam: str             = Field(..., description="Exam name")
     course: str           = Field(..., description="Course code, e.g. 'CS 301'")
+<<<<<<< HEAD
+    pages_per_student: int = Field(..., gt=0, description="How many PDF pages belong to one student")
+=======
     pages_per_student: int | None = Field(default=None, description="How many PDF pages belong to one student")
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     questions: list[QuestionSchema] = Field(..., min_length=1)
 
     @property

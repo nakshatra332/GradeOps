@@ -12,12 +12,21 @@
 
 import { startPipeline, getPipelineState } from '../api/pipeline.js';
 import { createExam } from '../api/exams.js';
+<<<<<<< HEAD
+=======
 import { getCourses } from '../api/courses.js';
 import { getRubrics } from '../api/rubrics.js';
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 import { store }     from '../state.js';
 import { navigate }  from '../router.js';
 import { showToast } from '../components/toast.js';
 
+<<<<<<< HEAD
+let pdfFiles   = [];
+let rubricFile = null;
+let pollTimer  = null;
+
+=======
 let pdfFile    = null;
 let rubricFile = null;
 let pollTimer  = null;
@@ -25,6 +34,7 @@ let pollTimer  = null;
 let courses = [];
 let rubrics = [];
 
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 const WORKFLOW_STEPS = [
   { title: 'OCR & Transcription', desc: 'Handwriting extracted from scanned pages' },
   { title: 'AI Grading',          desc: 'Answers scored against rubric with justification' },
@@ -35,6 +45,12 @@ const WORKFLOW_STEPS = [
 // ── Render ────────────────────────────────────────────────────────────────────
 
 export async function render(container) {
+<<<<<<< HEAD
+  pdfFiles   = [];
+  rubricFile = null;
+  clearInterval(pollTimer);
+
+=======
   pdfFile    = null;
   rubricFile = null;
   clearInterval(pollTimer);
@@ -45,11 +61,16 @@ export async function render(container) {
     console.warn('Failed to fetch metadata:', err);
   }
 
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">Upload exam</h1>
+<<<<<<< HEAD
+        <p class="page-sub">Submit a scanned PDF and a rubric JSON for AI grading + TA review</p>
+=======
         <p class="page-sub">Submit a scanned PDF and select a rubric for AI grading + TA review</p>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
       </div>
     </div>
 
@@ -62,6 +83,13 @@ export async function render(container) {
             <label class="form-label" for="exam-name">Exam name</label>
             <input type="text" id="exam-name" placeholder="e.g. Midterm Exam — Section B">
           </div>
+<<<<<<< HEAD
+          <div class="form-group">
+            <label class="form-label" for="exam-course">Course code</label>
+            <input type="text" id="exam-course" value="CS 301">
+          </div>
+
+=======
           
           <div class="grid2">
             <div class="form-group">
@@ -73,11 +101,35 @@ export async function render(container) {
               </select>
             </div>
           </div>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         </div>
 
         <!-- PDF drop zone -->
         <div class="card">
           <div class="card-title">
+<<<<<<< HEAD
+            <i class="ti ti-file-type-pdf" aria-hidden="true"></i> Student PDFs
+          </div>
+          <div class="upload-zone" id="drop-pdf" role="button" tabindex="0" aria-label="Upload PDF">
+            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+            <p id="pdf-label">Drop student PDFs here or click to browse</p>
+            <small>Multiple PDFs · One PDF per student</small>
+          </div>
+          <input type="file" id="file-pdf" accept=".pdf" multiple style="display:none">
+        </div>
+
+        <!-- Rubric drop zone -->
+        <div class="card">
+          <div class="card-title">
+            <i class="ti ti-list-check" aria-hidden="true"></i> Rubric / Marking Scheme
+          </div>
+          <div class="upload-zone" id="drop-rubric" role="button" tabindex="0" aria-label="Upload Rubric JSON or PDF">
+            <i class="ti ti-file-code" aria-hidden="true"></i>
+            <p id="rubric-label">Drop rubric.json or marking_scheme.pdf here</p>
+            <small>JSON must match <strong>RubricSchema</strong>. PDFs will be extracted automatically.</small>
+          </div>
+          <input type="file" id="file-rubric" accept=".json,.pdf" style="display:none">
+=======
             <i class="ti ti-file-type-pdf" aria-hidden="true"></i> Exam PDF
           </div>
           <div class="upload-zone" id="drop-pdf" role="button" tabindex="0" aria-label="Upload PDF">
@@ -109,12 +161,17 @@ export async function render(container) {
             </div>
             <input type="file" id="file-rubric" accept=".json" style="display:none">
           </div>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         </div>
 
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
           <label style="display:flex;align-items:center;gap:6px;font-size:var(--text-sm);cursor:pointer">
             <input type="checkbox" id="mock-mode" style="width:16px;height:16px">
+<<<<<<< HEAD
+            Mock mode <span style="color:var(--neutral-400)">(no API key needed — uses dummy responses)</span>
+=======
             Mock mode <span style="color:var(--neutral-400)">(no API key needed)</span>
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
           </label>
         </div>
 
@@ -167,6 +224,8 @@ function bindEvents(container) {
   const filePdf    = container.querySelector('#file-pdf');
   const dropRubric = container.querySelector('#drop-rubric');
   const fileRubric = container.querySelector('#file-rubric');
+<<<<<<< HEAD
+=======
   const selectRubric = container.querySelector('#select-rubric');
   const rubricContainer = container.querySelector('#rubric-upload-container');
   const selectCourse = container.querySelector('#exam-course-id');
@@ -195,6 +254,7 @@ function bindEvents(container) {
   selectRubric.addEventListener('change', () => {
     rubricContainer.style.display = selectRubric.value === 'upload' ? 'block' : 'none';
   });
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   // PDF zone
   dropPdf.addEventListener('click', () => filePdf.click());
@@ -203,11 +263,19 @@ function bindEvents(container) {
   dropPdf.addEventListener('dragleave', () => dropPdf.classList.remove('drag'));
   dropPdf.addEventListener('drop', e => {
     e.preventDefault(); dropPdf.classList.remove('drag');
+<<<<<<< HEAD
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.pdf'));
+    if (files.length > 0) setPdf(files, container);
+    else showToast('Please drop .pdf files', 'error');
+  });
+  filePdf.addEventListener('change', () => { if (filePdf.files.length) setPdf(filePdf.files, container); });
+=======
     const f = e.dataTransfer.files[0];
     if (f?.name.endsWith('.pdf')) setPdf(f, container);
     else showToast('Please drop a .pdf file', 'error');
   });
   filePdf.addEventListener('change', () => { if (filePdf.files[0]) setPdf(filePdf.files[0], container); });
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   // Rubric zone
   dropRubric.addEventListener('click', () => fileRubric.click());
@@ -217,17 +285,29 @@ function bindEvents(container) {
   dropRubric.addEventListener('drop', e => {
     e.preventDefault(); dropRubric.classList.remove('drag');
     const f = e.dataTransfer.files[0];
+<<<<<<< HEAD
+    if (f?.name.endsWith('.json') || f?.name.endsWith('.pdf')) setRubric(f, container);
+    else showToast('Please drop a .json or .pdf file', 'error');
+=======
     if (f?.name.endsWith('.json')) setRubric(f, container);
     else showToast('Please drop a .json file', 'error');
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   });
   fileRubric.addEventListener('change', () => { if (fileRubric.files[0]) setRubric(fileRubric.files[0], container); });
 
   container.querySelector('#submit-btn').addEventListener('click', () => handleSubmit(container));
 }
 
+<<<<<<< HEAD
+function setPdf(files, container) {
+  pdfFiles = Array.from(files);
+  const size = pdfFiles.reduce((acc, f) => acc + f.size, 0);
+  container.querySelector('#pdf-label').textContent = `✓ ${pdfFiles.length} files selected (${(size / 1024 / 1024).toFixed(1)} MB)`;
+=======
 function setPdf(file, container) {
   pdfFile = file;
   container.querySelector('#pdf-label').textContent = `✓ ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   container.querySelector('#drop-pdf').style.borderColor = 'var(--brand)';
 }
 
@@ -240,6 +320,10 @@ function setRubric(file, container) {
 // ── Submit & poll ─────────────────────────────────────────────────────────────
 
 async function handleSubmit(container) {
+<<<<<<< HEAD
+  if (!pdfFiles || pdfFiles.length === 0)    { showToast('Please upload student PDFs first', 'error');      return; }
+  if (!rubricFile) { showToast('Please upload a rubric JSON file first', 'error'); return; }
+=======
   if (!pdfFile)    { showToast('Please upload an exam PDF first', 'error');      return; }
   
   const rubricId = container.querySelector('#select-rubric').value;
@@ -253,6 +337,7 @@ async function handleSubmit(container) {
     showToast('Please select a course', 'error');
     return;
   }
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   const mockMode = container.querySelector('#mock-mode')?.checked ?? false;
   const btn      = container.querySelector('#submit-btn');
@@ -262,6 +347,13 @@ async function handleSubmit(container) {
   setProgress(container, 20, 'Starting pipeline…', 'Uploading files to server…');
 
   try {
+<<<<<<< HEAD
+    const { exam_id } = await startPipeline(pdfFiles, rubricFile, null, mockMode);
+    store.activeExamId = exam_id;
+
+    const examName = container.querySelector('#exam-name')?.value?.trim() || `Exam ${exam_id.substring(5)}`;
+    const examCourse = container.querySelector('#exam-course')?.value?.trim() || 'CS 301';
+=======
     const { exam_id } = await startPipeline(
       pdfFile, 
       rubricId === 'upload' ? rubricFile : null, 
@@ -275,13 +367,19 @@ async function handleSubmit(container) {
     const examName = container.querySelector('#exam-name')?.value?.trim() || `Exam ${exam_id.substring(5)}`;
     const course = courses.find(c => c.id === courseId);
     const rubricName = rubricId === 'upload' ? rubricFile.name : rubrics.find(r => r.id === rubricId)?.name;
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
     await createExam({
       id: exam_id,
       name: examName,
+<<<<<<< HEAD
+      course: examCourse,
+      rubricName: rubricFile.name
+=======
       course: course ? course.code : 'CS 301',
       courseId: courseId,
       rubricName: rubricName
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     });
 
     setProgress(container, 40, 'Ingestion complete', 'Splitting PDF into per-student pages…');

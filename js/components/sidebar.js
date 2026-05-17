@@ -12,8 +12,12 @@ const INSTRUCTOR_NAV = [
   { section: 'Exams' },
   { id: 'upload',     icon: 'ti-upload',           label: 'Upload Exams' },
   { id: 'exams',      icon: 'ti-files',            label: 'Manage Exams' },
+<<<<<<< HEAD
+  { section: 'Rubrics' },
+=======
   { section: 'Academic' },
   { id: 'courses',    icon: 'ti-book',             label: 'Course Manager' },
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   { id: 'rubrics',    icon: 'ti-list-check',       label: 'Rubric Manager' },
   { section: 'Team' },
   { id: 'users',      icon: 'ti-users',            label: 'Users & Roles' },

@@ -45,6 +45,29 @@ python main.py --rubric examples/rubric.json --pdf your_exam.pdf
 
 ---
 
+<<<<<<< HEAD
+## Using local Qwen-VL for OCR
+
+Set these env vars in `.env` (or export in your shell):
+
+```bash
+OCR_BACKEND=qwen_local
+QWEN_MODEL_ID=Qwen/Qwen-VL-Chat
+QWEN_DEVICE=auto   # auto | cuda | cpu
+QWEN_DTYPE=bf16    # bf16 | fp16 | fp32
+QWEN_MAX_NEW_TOKENS=512
+```
+
+Notes:
+- Local Qwen-VL expects page images to be on the local filesystem. If you
+  use S3 storage for page images, keep `OCR_BACKEND=gemini` or add a
+  download step.
+- GPU recommended for reasonable throughput.
+
+---
+
+=======
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 ## FastAPI server (for GradeOps frontend integration)
 
 ```bash

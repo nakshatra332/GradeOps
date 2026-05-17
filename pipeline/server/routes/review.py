@@ -9,9 +9,12 @@ This is the endpoint the GradeOps frontend calls when a TA:
   - Escalates to instructor (key F / escalate)
 
 It resumes the LangGraph graph by calling graph.invoke(Command(resume=...)).
+<<<<<<< HEAD
+=======
 Returns the same full state shape as GET /pipeline/{exam_id} so the
 frontend does not need a separate re-poll after each decision — eliminating
 the race condition that existed when the frontend had to call render() again.
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 """
 
 from __future__ import annotations
@@ -21,7 +24,11 @@ from fastapi import APIRouter, HTTPException
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
+<<<<<<< HEAD
+from graph import graph
+=======
 from pipeline.graph import graph
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 router = APIRouter(prefix="/review", tags=["review"])
 
@@ -74,9 +81,13 @@ async def submit_decision(exam_id: str, body: DecisionRequest):
     The graph resumes from the interrupt() call in review_node and
     either loops back for the next student or proceeds to finalize.
 
+<<<<<<< HEAD
+    Returns the updated state (including next_review if another student is waiting).
+=======
     Returns the updated full pipeline state — same shape as
     GET /pipeline/{exam_id} — so the frontend can update immediately
     without a separate poll or race condition.
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     """
     # Check that the exam exists and has a pending interrupt
     snapshot = graph.get_state(_config(exam_id))
@@ -95,6 +106,22 @@ async def submit_decision(exam_id: str, body: DecisionRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
+<<<<<<< HEAD
+    # ── Run pipeline resume in thread pool (non-blocking) ─────────────────────
+    import asyncio
+    from server.routes.pipeline import _executor, _resume_graph_sync, _pipeline_status
+
+    # Set status to processing immediately so the frontend knows to wait
+    _pipeline_status[exam_id] = "processing"
+
+    cmd = Command(resume=resume_value)
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(_executor, _resume_graph_sync, cmd, exam_id)
+
+    return {
+        "exam_id":     exam_id,
+        "status":      "processing",
+=======
     # ── Run pipeline resume in thread pool, then await completion ─────────────
     import asyncio
     from pipeline.server.routes.pipeline import _executor, _resume_graph_sync, _pipeline_status
@@ -138,4 +165,5 @@ async def submit_decision(exam_id: str, body: DecisionRequest):
         "error":       state.get("error"),
         "next_review": next_review,
         "is_complete": is_complete,
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     }

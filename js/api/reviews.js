@@ -4,7 +4,10 @@
 
 import { store, delay } from '../state.js';
 import { getPipelineState } from './pipeline.js';
+<<<<<<< HEAD
+=======
 import { getExams } from './exams.js';
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 export async function getPendingReviews() {
   await delay();
@@ -13,8 +16,12 @@ export async function getPendingReviews() {
 
 export async function getCompletedReviews() {
   const completed = [];
+<<<<<<< HEAD
+  for (const exam of store.exams) {
+=======
   const exams = await getExams();
   for (const exam of exams) {
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     if (exam.status === 'processing' || exam.status === 'graded') {
       try {
         const state = await getPipelineState(exam.id);
@@ -25,7 +32,10 @@ export async function getCompletedReviews() {
             completed.push({
               student: s.student_id,
               q: exam.name,
+<<<<<<< HEAD
+=======
               score: s.final_score ?? (s.grade_output?.total_score || 0),
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
               ai_score: s.grade_output?.total_score || 0,
               max: maxScore,
               status: s.ta_decision === 'approve' ? 'approved' : 'overridden',
@@ -70,6 +80,14 @@ export async function skipReview(id) {
 }
 
 export async function getReviewStats() {
+<<<<<<< HEAD
+  await delay();
+  const pendingCount = store.exams.filter(e => e.status === 'processing').length;
+  return {
+    pending: pendingCount,
+    approved: 0,
+    overridden: 0,
+=======
   const reviews = await getCompletedReviews();
   const exams = await getExams();
   const pendingCount = exams.filter(e => e.status === 'processing').length;
@@ -78,5 +96,6 @@ export async function getReviewStats() {
     pending: pendingCount,
     approved: reviews.filter(r => r.status === 'approved').length,
     overridden: reviews.filter(r => r.status === 'overridden').length,
+>>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   };
 }
