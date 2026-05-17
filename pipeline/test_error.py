@@ -1,10 +1,6 @@
 import asyncio
 from pathlib import Path
-<<<<<<< HEAD
 from graph import graph
-=======
-from pipeline.graph import graph
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 import os
 
 os.environ["MOCK_LLM"] = "true"

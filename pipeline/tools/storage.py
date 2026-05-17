@@ -61,20 +61,7 @@ class LocalStorage(StorageBackend):
         return self._full_path(key).read_bytes()
 
     def url(self, key: str) -> str:
-<<<<<<< HEAD
         return str(self._full_path(key))
-=======
-        """Return a URL-safe path relative to the project root for the frontend."""
-        full_path = self._full_path(key)
-        # Find project root (assumes storage.py is at pipeline/tools/storage.py)
-        project_root = Path(__file__).resolve().parent.parent.parent
-        try:
-            # Return path relative to the root (e.g., /pipeline/scratch/...)
-            return "/" + str(full_path.relative_to(project_root)).replace("\\", "/")
-        except ValueError:
-            # Fallback to string if for some reason it's not under project_root
-            return str(full_path)
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 class S3Storage(StorageBackend):
@@ -108,11 +95,7 @@ class S3Storage(StorageBackend):
 
 def get_storage() -> StorageBackend:
     """Factory — reads config and returns the appropriate backend."""
-<<<<<<< HEAD
     from config import settings
-=======
-    from pipeline.config import settings
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     if settings.storage_backend == "s3":
         return S3Storage(bucket=settings.s3_bucket)
     # "gcs" support can be added here similarly

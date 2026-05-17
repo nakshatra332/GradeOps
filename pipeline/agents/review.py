@@ -23,13 +23,8 @@ Decision payload (what the TA sends back):
 from __future__ import annotations
 from langgraph.types import interrupt
 
-<<<<<<< HEAD
 from schemas.outputs import GradeOutput
 from state import ExamGradingState, StudentRecord
-=======
-from pipeline.schemas.outputs import GradeOutput
-from pipeline.state import ExamGradingState, StudentRecord
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 def _payload_for_student(student: StudentRecord, exam_id: str) -> dict:

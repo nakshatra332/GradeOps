@@ -6,17 +6,10 @@ Usage:
     python main.py --rubric examples/rubric.json --pdf examples/sample_exam.pdf --mock
 
     # Real Gemini run:
-<<<<<<< HEAD
     python main.py --rubric examples/rubric.json --pdfs path/to/student1.pdf path/to/student2.pdf
 
     # Auto-approve all students (no interactive prompts):
     python main.py --rubric examples/rubric.json --pdfs exam.pdf --mock --auto-approve
-=======
-    python main.py --rubric examples/rubric.json --pdf path/to/exam.pdf
-
-    # Auto-approve all students (no interactive prompts):
-    python main.py --rubric examples/rubric.json --pdf exam.pdf --mock --auto-approve
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 The CLI simulates the TA review loop interactively — in production,
 the FastAPI server handles decisions from the GradeOps dashboard instead.
@@ -35,11 +28,7 @@ from langgraph.types import Command
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="GradeOps grading pipeline CLI")
     p.add_argument("--rubric",       required=True, help="Path to rubric JSON file")
-<<<<<<< HEAD
     p.add_argument("--pdfs",         nargs="+", required=True, help="Paths to individual exam PDFs")
-=======
-    p.add_argument("--pdf",          required=True, help="Path to exam PDF")
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     p.add_argument("--exam-id",      default=None,  help="Optional exam ID (auto-generated if omitted)")
     p.add_argument("--mock",         action="store_true", help="Use mock LLM responses (no API key needed)")
     p.add_argument("--auto-approve", action="store_true", help="Approve all AI grades without prompting")
@@ -93,32 +82,18 @@ def _interactive_review(interrupt_payload: dict) -> str | dict:
             print("  Type A, O, E, or S.")
 
 
-<<<<<<< HEAD
 def run_pipeline(rubric_path: str, pdf_paths: list[str], exam_id: str | None, auto_approve: bool):
     """Run the full graph, handling HITL interrupts in the CLI."""
     from graph import graph
-=======
-def run_pipeline(rubric_path: str, pdf_path: str, exam_id: str | None, auto_approve: bool):
-    """Run the full graph, handling HITL interrupts in the CLI."""
-    from pipeline.graph import graph
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     from langgraph.types import Command
     from langgraph.errors import GraphInterrupt
 
     rubric_raw = Path(rubric_path).read_text()
-<<<<<<< HEAD
     thread_id  = exam_id or f"cli_{Path(pdf_paths[0]).stem}"
     config     = {"configurable": {"thread_id": thread_id}}
 
     initial_state = {
         "_pdf_paths":  pdf_paths,
-=======
-    thread_id  = exam_id or f"cli_{Path(pdf_path).stem}"
-    config     = {"configurable": {"thread_id": thread_id}}
-
-    initial_state = {
-        "_pdf_path":   pdf_path,
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         "_rubric_raw": rubric_raw,
         "exam_id":     exam_id or "",
         "students":    [],
@@ -130,11 +105,7 @@ def run_pipeline(rubric_path: str, pdf_path: str, exam_id: str | None, auto_appr
 
     print(f"\n[pipeline] Starting — exam: {thread_id}")
     print(f"[pipeline] Rubric:   {rubric_path}")
-<<<<<<< HEAD
     print(f"[pipeline] PDFs:     {len(pdf_paths)} files")
-=======
-    print(f"[pipeline] PDF:      {pdf_path}")
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     print(f"[pipeline] Mock LLM: {os.environ.get('MOCK_LLM', 'false')}")
 
     # Stream events from the graph; collect the final state
@@ -177,15 +148,9 @@ def run_pipeline(rubric_path: str, pdf_path: str, exam_id: str | None, auto_appr
 
     # Print final stats
     stats = last_state.get("stats", {})
-<<<<<<< HEAD
     print("\n" + "=" * 60)
     print("  FINAL GRADE REPORT")
     print("=" * 60)
-=======
-    print("\n" + "═" * 60)
-    print("  FINAL GRADE REPORT")
-    print("═" * 60)
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
     print(json.dumps(stats, indent=2))
     exam_out = last_state.get("exam_id") or thread_id
     print(f"\n  Gradebook: scratch/{exam_out}/gradebook.json")
@@ -200,11 +165,7 @@ def main():
 
     run_pipeline(
         rubric_path=args.rubric,
-<<<<<<< HEAD
         pdf_paths=args.pdfs,
-=======
-        pdf_path=args.pdf,
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         exam_id=args.exam_id,
         auto_approve=args.auto_approve,
     )

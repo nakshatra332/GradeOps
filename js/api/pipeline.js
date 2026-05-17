@@ -6,18 +6,12 @@
  * pre-configured on the backend to allow this.
  */
 
-<<<<<<< HEAD
 const API_BASE = 'http://localhost:8000';
-=======
-// Use the current origin as the API base if we're not on the default dev port (3000)
-const API_BASE = window.location.port === '3000' ? 'http://localhost:8000' : '';
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 /**
  * Start the grading pipeline for an exam.
  *
  * @param {File}   pdfFile     - The uploaded PDF file object
-<<<<<<< HEAD
  * @param {File}   rubricFile  - The rubric JSON file object
  * @param {string} examId      - Optional custom exam ID
  * @param {boolean} mock       - Use mock LLM (no API key needed)
@@ -33,21 +27,6 @@ export async function startPipeline(pdfFiles, rubricFile, examId = null, mock = 
   }
 
   form.append('rubric', rubricFile);
-=======
- * @param {File}   rubricFile  - Optional uploaded rubric JSON file object
- * @param {string} examId      - Optional custom exam ID
- * @param {boolean} mock       - Use mock LLM (no API key needed)
- * @param {string} rubricId    - Optional ID of a saved rubric on the backend
- * @param {string} courseId    - Optional ID of a saved course on the backend
- * @returns {{ exam_id: string, status: string }}
- */
-export async function startPipeline(pdfFile, rubricFile = null, examId = null, mock = false, rubricId = null, courseId = null) {
-  const form = new FormData();
-  form.append('pdf',    pdfFile);
-  if (rubricFile) form.append('rubric', rubricFile);
-  if (rubricId)   form.append('rubric_id', rubricId);
-  if (courseId)   form.append('course_id', courseId);
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   if (examId) form.append('exam_id', examId);
   form.append('mock', String(mock));
 

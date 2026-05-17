@@ -14,12 +14,7 @@ export const store = {
   // Set by upload.js after POST /pipeline/start, read by ta-review.js.
   activeExamId: null,
 
-<<<<<<< HEAD
   course: { code: 'CS 301', name: 'Algorithms' },
-=======
-  // The currently active course context
-  selectedCourseId: null,
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
   users: [
     { id: 1, name: 'Prof. Rajesh Kumar',  email: 'rk@cs.edu', role: 'instructor', avatar: 'RK', color: '#E1F5EE', tc: '#0F6E56' },

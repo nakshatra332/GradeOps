@@ -1,21 +1,11 @@
 {
   "name": "gradeops",
   "version": "1.0.0",
-<<<<<<< HEAD
   "description": "GradeFlow — Human-in-the-loop AI grading portal",
   "private": true,
   "scripts": {
     "dev":   "npx serve . --listen 3000 --no-clipboard",
     "start": "npx serve . --listen 3000 --no-clipboard"
-=======
-  "description": "GradeOps — Human-in-the-Loop AI grading portal",
-  "private": true,
-  "scripts": {
-    "dev":        "npx serve . --listen 3000 --no-clipboard",
-    "start":      "export PYTHONPATH=$PYTHONPATH:. && ( [ -f pipeline/venv/bin/uvicorn ] && pipeline/venv/bin/uvicorn pipeline.server.app:app --port 8000 --host 0.0.0.0 || uvicorn pipeline.server.app:app --port 8000 --host 0.0.0.0 )",
-    "backend":    "export PYTHONPATH=$PYTHONPATH:. && ( [ -f pipeline/venv/bin/uvicorn ] && pipeline/venv/bin/uvicorn pipeline.server.app:app --reload --port 8000 || uvicorn pipeline.server.app:app --reload --port 8000 )",
-    "backend:mock": "export PYTHONPATH=$PYTHONPATH:. && cross-env MOCK_LLM=true ( [ -f pipeline/venv/bin/uvicorn ] && pipeline/venv/bin/uvicorn pipeline.server.app:app --reload --port 8000 || uvicorn pipeline.server.app:app --reload --port 8000 )"
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
   },
   "devDependencies": {
     "serve": "^14.2.4"

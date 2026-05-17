@@ -26,19 +26,11 @@ from tenacity import (
     wait_exponential,
 )
 
-<<<<<<< HEAD
 from config import settings
 from schemas.rubric import RubricSchema
 from schemas.outputs import GradeOutput, QuestionGrade
 from state import ExamGradingState, StudentRecord
 from tools.similarity import find_suspicious_pairs, build_student_flag_map
-=======
-from pipeline.config import settings
-from pipeline.schemas.rubric import RubricSchema
-from pipeline.schemas.outputs import GradeOutput, QuestionGrade
-from pipeline.state import ExamGradingState, StudentRecord
-from pipeline.tools.similarity import find_suspicious_pairs, build_student_flag_map
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 
 
 # ── Prompt builders ───────────────────────────────────────────────────────────
@@ -152,19 +144,11 @@ async def _grade_student_throttled(
                 score=0.0,
                 max_score=q.max_marks,
                 criteria_met=[],
-<<<<<<< HEAD
                 justification="[API Error] Auto-grading failed due to rate limits. TA MUST review manually.",
             ))
         return GradeOutput(
             question_grades=question_grades,
             overall_justification=f"[API Error] Could not grade due to rate limits: {exc}"
-=======
-                justification="[API Error] Auto-grading failed due to API error. TA MUST review manually.",
-            ))
-        return GradeOutput(
-            question_grades=question_grades,
-            overall_justification=f"[API Error] Could not grade due to API error: {exc}"
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         )
 
 
@@ -263,7 +247,6 @@ def grading_agent(state: ExamGradingState) -> dict:
             google_api_key=settings.google_api_key,
         )
         try:
-<<<<<<< HEAD
             import time
             time.sleep(6.5)  # Strict pace: <10 requests per minute
             
@@ -277,9 +260,6 @@ def grading_agent(state: ExamGradingState) -> dict:
                 return embed_model.embed_documents(transcripts)
                 
             embeddings = _get_embeddings()
-=======
-            embeddings = embed_model.embed_documents(transcripts)
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
         except Exception as exc:
             print(f"[grading] API Error during embeddings: {exc}")
             embeddings = [[0.0] * 768 for _ in transcripts]

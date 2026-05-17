@@ -15,8 +15,5 @@ numpy>=1.26.0
 pillow>=10.4.0
 aiofiles>=24.1.0
 httpx>=0.27.0
-<<<<<<< HEAD
 pymongo>=4.6.0
 langgraph-checkpoint-mongodb>=0.1.0
-=======
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0

@@ -45,7 +45,6 @@ python main.py --rubric examples/rubric.json --pdf your_exam.pdf
 
 ---
 
-<<<<<<< HEAD
 ## Using local Qwen-VL for OCR
 
 Set these env vars in `.env` (or export in your shell):
@@ -66,8 +65,6 @@ Notes:
 
 ---
 
-=======
->>>>>>> 63e8a80e29fe3b5f4b16edbf8eb97b77e87ee3c0
 ## FastAPI server (for GradeOps frontend integration)
 
 ```bash
